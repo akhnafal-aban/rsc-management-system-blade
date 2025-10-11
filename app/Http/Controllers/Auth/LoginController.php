@@ -12,7 +12,11 @@ class LoginController extends Controller
 {
     public function showLoginForm()
     {
-        return view('login');
+        if (Auth::check()) {
+            return redirect()->route('dashboard');
+        }
+
+        return view('pages.Auth.Login');
     }
 
     public function login(Request $request)
@@ -35,8 +39,10 @@ class LoginController extends Controller
     public function logout(Request $request)
     {
         Auth::logout();
+
         $request->session()->invalidate();
         $request->session()->regenerateToken();
+
         return redirect('/login');
     }
 }
