@@ -1,0 +1,60 @@
+---
+alwaysApply: true
+---
+
+## PHP instructions
+ 
+- In PHP, use `match` operator over `switch` whenever possible
+- Use PHP 8 constructor property promotion. Don't create an empty Constructor method if it doesn't have any parameters.
+- Using Services in Controllers: if Service class is used only in ONE method of Controller, inject it directly into that method with type-hinting. If Service class is used in MULTIPLE methods of Controller, initialize it in Constructor.
+- Use return types in functions whenever possible, adding the full path to classname to the top in `use` section
+- Generate Enums always in the folder `app/Enums`, not in the main `app/` folder, unless instructed differently.
+- Always use declare(strict_types=1); at the top of PHP files (except Blade templates).
+- Always explicitly define visibility for class properties and methods (public, protected, private), even if public is default.
+ 
+---
+ 
+## Laravel 12 instructions
+ 
+- **Eloquent Observers** should be registered in Eloquent Models with PHP Attributes, and not in AppServiceProvider. Example: `#[ObservedBy([UserObserver::class])]` with `use Illuminate\Database\Eloquent\Attributes\ObservedBy;` on top
+- When generating Controllers, put validation in Form Request classes and use `$request->validated()` instead of listing inputs one by one.
+- Aim for "slim" Controllers and put larger logic pieces in Service classes
+- Use Laravel helpers instead of `use` section classes whenever possible. Examples: use `auth()->id()` instead of `Auth::id()` and adding `Auth` in the `use` section. Another example: use `redirect()->route()` instead of `Redirect::route()`.
+- Don't use `whereKey()` or `whereKeyNot()`, use specific fields like `id`. Example: instead of `->whereKeyNot($currentUser->getKey())`, use `->where('id', '!=', $currentUser->id)`.
+- Don't add `::query()` when running Eloquent `create()` statements. Example: instead of `User::query()->create()`, use `User::create()`.
+- In Livewire projects, don't use Livewire Volt. Only Livewire class components.
+- When creating pivot tables in migrations, if you use `timestamps()`, then in Eloquent Models, add `withTimestamps()` to the `BelongsToMany` relationships.
+- This project follows a monolithic architecture using Blade as the primary view layer. Tailwind CSS is the main styling framework, with all custom CSS located in resources/css/app.css.
+- JavaScript assets are managed via Vite (resources/js/app.js). No frontend frameworks (Vue, React, etc.) are used unless explicitly required.
+
+---
+ 
+## Use Laravel 12 skeleton structure
+ 
+- **Service Providers**: there are no other service providers except AppServiceProvider. Don't create new service providers unless absolutely necessary. Use Laravel 11+ new features, instead. Or, if you really need to create a new service provider, register it in `bootstrap/providers.php` and not `config/app.php` like it used to be before Laravel 11.
+- **Event Listeners**: since Laravel 11, Listeners auto-listen for the events if they are type-hinted correctly.
+- **Console Scheduler**: scheduled commands should be in `routes/console.php` and not `app/Console/Kernel.php` which doesn't exist since Laravel 11.
+- **Middleware**: whenever possible, use Middleware by class name in the routes. But if you do need to register Middleware alias, it should be registered in `bootstrap/app.php` and not `app/Http/Kernel.php` which doesn't exist since Laravel 11.
+- **Tailwind**: in new Blade pages, use Tailwind and not Bootstrap, unless instructed otherwise in the prompt. Tailwind is already pre-configured since Laravel 11, with Vite.
+- **Faker**: in Factories, use `fake()` helper instead of `$this->faker`.
+- **Policies**: Laravel automatically auto-discovers Policies, no need to register them in the Service Providers.
+ 
+---
+
+## Application Layer Structure (Monolith Context)
+
+- **Service Layer**: All business logic must be placed in dedicated Service classes under `app/Services/`.  
+  Each Service should represent a specific domain (e.g., `UserService`, `AttendanceService`, `PaymentService`) and handle all processing, data manipulation, and coordination between models.
+- **Controller Layer**: Controllers act purely as **API and request management layers**.  
+  Their sole responsibility is to receive validated requests, call the appropriate Service, and return the corresponding response — typically a **Blade view** (not JSON), since this project follows a **monolithic architecture**.
+- **Form Requests**: All input validation must be handled using Form Request classes under `app/Http/Requests/`.  
+  Access sanitized data exclusively through `$request->validated()` within Controllers or Services.
+- **Resources**: Use Laravel API Resources under `app/Http/Resources/` to transform model or collection data before passing it to views.  
+  This ensures consistency and separation between data formatting and business logic.
+- **Blade Views**:
+  - Blade templates are strictly for presentation.  
+  - Basic directives such as `@if`, `@foreach`, `@include`, and `@component` may be used **only for structural or visual purposes**, not for business decisions or data manipulation.  
+  - Reusable UI parts should be implemented as **Blade Components** under `resources/views/components/`.  
+  - Avoid inline logic, queries, or complex expressions inside Blade files.
+  - **Do not write or include custom JavaScript directly in Blade templates**, even if explicitly instructed for interactive UI elements such as modals or dropdowns. All interactivity must be handled using Blade components only. Controllers must not contain JavaScript logic or return JSON responses under any circumstance.
+  - All additional JavaScript must reside in `resources/js/app.js` and be managed through **Vite**.
