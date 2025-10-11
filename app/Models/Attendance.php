@@ -17,6 +17,12 @@ class Attendance extends Model
         'updated_by',
     ];
 
+    protected $casts = [
+        'check_in_time' => 'datetime',
+        'check_out_time' => 'datetime',
+    ];
+
+
     public function member()
     {
         return $this->belongsTo(Member::class);
