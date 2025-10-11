@@ -1,11 +1,96 @@
-@import 'tailwindcss';
+@import "tailwindcss";
 
-@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
-@source '../../storage/framework/views/*.php';
-@source '../**/*.blade.php';
-@source '../**/*.js';
+@source "../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php";
+@source "../../storage/framework/views/*.php";
+@source "../**/*.blade.php";
+@source "../**/*.js";
 
+/* =========================
+   Bubblegum Theme Variables
+   ========================= */
 @theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-        'Segoe UI Symbol', 'Noto Color Emoji';
+  --font-sans: "Instrument Sans", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
+    "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+
+  /* Colors recognized by Tailwind v4 */
+  --color-background: #12242e;
+  --color-foreground: #f3e3ea;
+  --color-card: #1c2e38;
+  --color-card-foreground: #f3e3ea;
+  --color-popover: #1c2e38;
+  --color-popover-foreground: #f3e3ea;
+  --color-primary: #fbe2a7;
+  --color-primary-foreground: #12242e;
+  --color-secondary: #e4a2b1;
+  --color-secondary-foreground: #12242e;
+  --color-muted: #24272b;
+  --color-muted-foreground: #e4a2b1;
+  --color-accent: #c67b96;
+  --color-accent-foreground: #f3e3ea;
+  --color-destructive: #e35ea4;
+  --color-destructive-foreground: #12242e;
+  --color-border: #324859;
+  --color-input: #20333d;
+  --color-ring: #50afb6;
+  --color-chart-1: #50afb6;
+  --color-chart-2: #e4a2b1;
+  --color-chart-3: #c67b96;
+  --color-chart-4: #175c6c;
+  --color-chart-5: #24272b;
+}
+
+/* =========================
+   Global Styles
+   ========================= */
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  /* Scrollbar Styling */
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-muted;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-border rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-accent;
+  }
+}
+
+/* =========================
+   Components
+   ========================= */
+@layer components {
+  .bubblegum-gradient {
+    background: linear-gradient(135deg, #fbe2a7 0%, #e4a2b1 50%, #c67b96 100%);
+  }
+
+  .bubblegum-card {
+    @apply bg-card text-card-foreground border border-border rounded-lg shadow-sm;
+  }
+
+  .bubblegum-button-primary {
+    @apply bg-primary text-primary-foreground hover:bg-primary/90 focus:ring-2 focus:ring-ring focus:ring-offset-2;
+  }
+
+  .bubblegum-button-secondary {
+    @apply bg-secondary text-secondary-foreground hover:bg-secondary/90 focus:ring-2 focus:ring-ring focus:ring-offset-2;
+  }
+
+  .bubblegum-button-destructive {
+    @apply bg-destructive text-destructive-foreground hover:bg-destructive/90 focus:ring-2 focus:ring-ring focus:ring-offset-2;
+  }
 }
