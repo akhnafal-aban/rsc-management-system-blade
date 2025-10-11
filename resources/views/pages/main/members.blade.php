@@ -8,8 +8,8 @@
       <p class="text-muted-foreground mt-1">Kelola data member gym dan detail informasinya</p>
     </div>
     <div class="mt-4 sm:mt-0 flex space-x-3">
-      @include('components.UI.button', ['variant' => 'outline', 'slot' => 'Ekspor'])
-      @include('components.UI.button', ['slot' => 'Tambah Member'])
+      @include('components.ui.button', ['variant' => 'outline', 'slot' => 'Ekspor'])
+      @include('components.ui.button', ['slot' => 'Tambah Member'])
     </div>
   </div>
   <div class="bg-card p-4 rounded-lg shadow-sm border border-border">
@@ -27,7 +27,7 @@
       </div>
     </div>
   </div>
-  @include('components.Members.member-table')
+  @include('components.partials.member-table')
   <!-- Add/Edit/View Member Modals as Blade includes or components -->
 </div>
 @endsection

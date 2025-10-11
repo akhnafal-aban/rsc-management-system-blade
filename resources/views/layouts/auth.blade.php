@@ -3,7 +3,6 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <meta name="csrf-token" content="{{ csrf_token() }}">
 
         <title>{{ config('app.name', 'Laravel') }}</title>
 
@@ -13,15 +12,16 @@
     </head>
 
     <body class="h-screen bg-background text-foreground flex flex-col">
-        @include('components.navigation.navbar')
+        {{-- @include('components.navbar')
         <div class="flex flex-1 overflow-hidden">
-            @include('components.navigation.sidebar')
+            @include('components.sidebar')
             <main class="flex-1 overflow-y-auto">
                 <div class="p-6 max-w-7xl mx-auto">
                     @yield('content')
                 </div>
             </main>
-        </div>
+        </div> --}}
+        @yield('content')
     </body>
     
 </html>

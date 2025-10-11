@@ -37,10 +37,10 @@
           <td class="px-6 py-4 whitespace-nowrap text-sm text-card-foreground">45</td>
           <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
             <div class="flex items-center justify-end space-x-2">
-              @include('components.UI.button', ['variant' => 'ghost', 'size' => 'sm', 'slot' => 'Lihat'])
-              @include('components.UI.button', ['variant' => 'ghost', 'size' => 'sm', 'slot' => 'Edit'])
-              @include('components.UI.button', ['variant' => 'ghost', 'size' => 'sm', 'slot' => 'Suspend'])
-              @include('components.UI.button', ['variant' => 'ghost', 'size' => 'sm', 'slot' => 'Hapus'])
+              @include('components.ui.button', ['variant' => 'ghost', 'size' => 'sm', 'slot' => 'Lihat'])
+              @include('components.ui.button', ['variant' => 'ghost', 'size' => 'sm', 'slot' => 'Edit'])
+              @include('components.ui.button', ['variant' => 'ghost', 'size' => 'sm', 'slot' => 'Suspend'])
+              @include('components.ui.button', ['variant' => 'ghost', 'size' => 'sm', 'slot' => 'Hapus'])
             </div>
           </td>
         </tr>
