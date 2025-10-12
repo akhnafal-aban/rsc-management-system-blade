@@ -6,13 +6,11 @@ namespace App\Http\Controllers\Main;
 
 use App\Http\Controllers\Controller;
 use App\Services\AttendanceService;
-use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\View\View;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
-use App\Models\Member;
-use Carbon\Carbon;
 
 class AttendanceController extends Controller
 {
@@ -21,11 +19,11 @@ class AttendanceController extends Controller
     ) {}
 
     public function index(Request $request): View
-    {   
+    {
         $search = $request->get('search');
         $statusFilter = $request->get('status');
 
-        $attendances = $this->attendanceService->getTodayAttendances(20, $search, $statusFilter);
+        $attendances = $this->attendanceService->getTodayAttendances(10, $search, $statusFilter);
         $stats = $this->attendanceService->getTodayStats();
         $searchResults = collect();
 
@@ -47,54 +45,55 @@ class AttendanceController extends Controller
 
     public function searchMember(Request $request): RedirectResponse
     {
-        $request->validate([  
-            'member_search' => ['required', 'string', 'min:2']
+        $request->validate([
+            'member_search' => ['required', 'string', 'min:2'],
         ]);
 
         return redirect()->route('attendance.index', [
-            'member_search' => $request->member_search
+            'member_search' => $request->member_search,
         ]);
     }
 
     public function checkIn(Request $request): RedirectResponse
     {
         $request->validate([
-            'member_id' => ['required', 'string']
+            'member_id' => ['required', 'string'],
         ]);
 
         $member = $this->attendanceService->getMemberById($request->member_id);
-        
-        if (!$member) {
+
+        if (! $member) {
             return redirect()->back()->with('error', 'Member tidak ditemukan');
         }
-        
+
         $status = $this->attendanceService->canCheckIn($member);
 
-        if (!$status['can_checkin']) {
+        if (! $status['can_checkin']) {
             return redirect()->back()->with('error', $status['message']);
         }
-    
+
         try {
             $this->attendanceService->checkInMember($member, Auth::id());
+
             return redirect()
                 ->route('attendance.index')
                 ->with('success', 'Check-in berhasil!');
         } catch (\Exception $e) {
             return redirect()
                 ->route('attendance.index')
-                ->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
+                ->with('error', 'Terjadi kesalahan: '.$e->getMessage());
         }
     }
 
     public function checkOut(Request $request): RedirectResponse
     {
         $request->validate([
-            'attendance_id' => ['required', 'exists:attendances,id']
+            'attendance_id' => ['required', 'exists:attendances,id'],
         ]);
 
         $attendance = $this->attendanceService->getAttendanceById($request->attendance_id);
-        
-        if (!$attendance) {
+
+        if (! $attendance) {
             return redirect()->back()->with('error', 'Data absensi tidak ditemukan');
         }
 
@@ -104,23 +103,24 @@ class AttendanceController extends Controller
 
         try {
             $this->attendanceService->checkOutMember($attendance, Auth::id());
+
             return redirect()->back()->with('success', 'Check-out berhasil!');
         } catch (\Exception $e) {
-            return redirect()->back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Terjadi kesalahan: '.$e->getMessage());
         }
     }
 
     public function exportTodayAttendances(): StreamedResponse
     {
         $data = $this->attendanceService->exportTodayAttendances();
-        $filename = 'absensi_' . now()->format('Y-m-d') . '.csv';
+        $filename = 'absensi_'.now()->format('Y-m-d').'.csv';
 
         $headers = [
             'Content-Type' => 'text/csv',
-            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
         ];
 
-        $callback = function() use ($data) {
+        $callback = function () use ($data) {
             $file = fopen('php://output', 'w');
             foreach ($data as $row) {
                 fputcsv($file, $row);

@@ -3,14 +3,80 @@
 declare(strict_types=1);
 
 namespace App\Http\Controllers\Main;
+
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreMemberRequest;
+use App\Http\Requests\UpdateMemberRequest;
+use App\Models\Member;
+use App\Services\MemberService;
 
 class MemberController extends Controller
 {
+    public function __construct(private MemberService $memberService) {}
+
     public function index()
     {
-        return view('pages.Members');
+        $filters = request()->only(['search', 'status']);
+        $members = $this->memberService->getAllMembers($filters);
+
+        return view('pages.main.member.member', compact('members'));
+    }
+
+    public function create()
+    {
+        return view('pages.main.member.create');
+    }
+
+    public function store(StoreMemberRequest $request)
+    {
+        $member = $this->memberService->createMember($request->validated());
+
+        return redirect()->route('member.show', $member)
+            ->with('success', 'Member berhasil ditambahkan.');
+    }
+
+    public function show(Member $member)
+    {
+        $member = $this->memberService->getMemberById($member->id);
+        $stats = $this->memberService->getMemberStats($member);
+
+        return view('pages.main.member.show', compact('member', 'stats'));
+    }
+
+    public function edit(Member $member)
+    {
+        return view('pages.main.member.edit', compact('member'));
+    }
+
+    public function update(UpdateMemberRequest $request, Member $member)
+    {
+        $this->memberService->updateMember($member->id, $request->validated());
+
+        return redirect()->route('member.show', $member)
+            ->with('success', 'Data member berhasil diperbarui.');
+    }
+
+    public function destroy(Member $member)
+    {
+        $this->memberService->deleteMember($member->id);
+
+        return redirect()->route('member.index')
+            ->with('success', 'Member berhasil dihapus.');
+    }
+
+    public function suspend(Member $member)
+    {
+        $this->memberService->suspendMember($member->id);
+
+        return redirect()->route('member.show', $member)
+            ->with('success', 'Member berhasil disuspend.');
+    }
+
+    public function activate(Member $member)
+    {
+        $this->memberService->activateMember($member->id);
+
+        return redirect()->route('member.show', $member)
+            ->with('success', 'Member berhasil diaktifkan.');
     }
 }
-
-
