@@ -22,6 +22,20 @@
     'alert-circle'  => 'tabler-alert-circle',
     'loader'        => 'tabler-loader',
     'menu'          => 'tabler-menu-2',
+    'plus'          => 'tabler-plus',
+    'eye'           => 'tabler-eye',
+    'edit'          => 'tabler-edit',
+    'trash'         => 'tabler-trash',
+    'user-x'        => 'tabler-user-x',
+    'user-check'    => 'tabler-user-check',
+    'phone'         => 'tabler-phone',
+    'mail'          => 'tabler-mail',
+    'map-pin'       => 'tabler-map-pin',
+    'calendar-event' => 'tabler-calendar-event',
+    'id'            => 'tabler-id',
+    'info-circle'   => 'tabler-info-circle',
+    'check'         => 'tabler-check',
+    'x'             => 'tabler-x',
   ];
 
   $iconName = $iconMap[$name] ?? 'tabler-circle';

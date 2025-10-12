@@ -17,7 +17,7 @@
         <div class="flex flex-1 overflow-hidden">
             @include('components.navigation.sidebar')
             <main class="flex-1 overflow-y-auto">
-                <div class="p-6 max-w-7xl mx-auto">
+                <div class="p-6 max-w-8xl mx-auto">
                     @yield('content')
                 </div>
             </main>

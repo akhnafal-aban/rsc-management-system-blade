@@ -50,7 +50,7 @@
         </script>
 
         <!-- Statistics Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {{-- <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
             @include('components.partials.stat-card', [
                 'title' => 'Total Check-in Hari Ini',
                 'value' => $stats['total_checkins'],
@@ -66,7 +66,7 @@
                 'value' => $stats['checked_in_today'],
                 'icon' => 'trending-up',
             ])
-        </div>
+        </div> --}}
 
         <!-- Today's Attendance Table -->
         <div class="bg-card text-card-foreground rounded-lg shadow-sm border border-border p-6">
