@@ -2,8 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
-// use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
@@ -13,20 +11,35 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
+        $this->command->info('Starting database seeding...');
 
-        User::factory()->create([
-            'name' => 'aban',
-            'email' => 'aban@aban',
-            'password' => 'password'
-        ]);
+        // Clear existing data (optional - uncomment if needed)
+        // $this->command->info('Clearing existing data...');
+        // $this->clearExistingData();
 
+        // Run seeders in correct order to maintain relationships
         $this->call([
-            // UserSeeder::class,
-            MemberSeeder::class,
-            MembershipSeeder::class,
-            // AttendanceSeeder::class,
-            // PaymentSeeder::class,
+            UserSeeder::class,        // Create users first (needed for foreign keys)
+            MemberSeeder::class,      // Create members
+            MembershipSeeder::class,  // Create memberships (depends on members)
+            AttendanceSeeder::class,  // Create attendance (depends on members & users)
+            PaymentSeeder::class,     // Create payments (depends on members)
+            // ActivityLogSeeder::class, // Create activity logs (depends on users)
+            // ReportSeeder::class,      // Create reports (depends on users)
         ]);
+
+        $this->command->info('Database seeding completed successfully!');
+    }
+
+    private function clearExistingData(): void
+    {
+        // Uncomment the following lines if you want to clear existing data
+        // \App\Models\Report::truncate();
+        // \App\Models\ActivityLog::truncate();
+        // \App\Models\Payment::truncate();
+        // \App\Models\Attendance::truncate();
+        // \App\Models\Membership::truncate();
+        // \App\Models\Member::truncate();
+        // \App\Models\User::truncate();
     }
 }

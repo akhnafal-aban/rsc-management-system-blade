@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Enums\MemberStatus;
 use App\Models\Attendance;
 use App\Models\Member;
-use App\Enums\MemberStatus;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
 
 class AttendanceService
 {
-    public function getTodayAttendances(int $perPage = 20, ?string $search = null, ?string $statusFilter = null): LengthAwarePaginator
+    public function getTodayAttendances(int $perPage = 10, ?string $search = null, ?string $statusFilter = null): LengthAwarePaginator
     {
         $query = Attendance::with(['member', 'creator'])
             ->whereDate('check_in_time', Carbon::today());
@@ -22,7 +22,7 @@ class AttendanceService
         if ($search) {
             $query->whereHas('member', function ($q) use ($search) {
                 $q->where('name', 'LIKE', "%{$search}%")
-                  ->orWhere('member_code', 'LIKE', "%{$search}%");
+                    ->orWhere('member_code', 'LIKE', "%{$search}%");
             });
         }
 
@@ -55,8 +55,8 @@ class AttendanceService
             ->where('exp_date', '>=', Carbon::today())
             ->where(function ($q) use ($query) {
                 $q->where('name', 'LIKE', "%{$query}%")
-                  ->orWhere('member_code', 'LIKE', "%{$query}%")
-                  ->orWhere('phone', 'LIKE', "%{$query}%");
+                    ->orWhere('member_code', 'LIKE', "%{$query}%")
+                    ->orWhere('phone', 'LIKE', "%{$query}%");
             })
             ->orderBy('name')
             ->limit(10)
@@ -75,12 +75,12 @@ class AttendanceService
     {
         $query = Member::select('id', 'member_code', 'name', 'exp_date')
             ->where('status', 'ACTIVE');
-            // ->whereDate('exp_date', '>=', Carbon::today()->toDateString());
+        // ->whereDate('exp_date', '>=', Carbon::today()->toDateString());
 
-        if (!empty($search = trim($search ?? ''))) {
+        if (! empty($search = trim($search ?? ''))) {
             $query->where(function ($q) use ($search) {
                 $q->where('member_code', 'like', "%{$search}%")
-                  ->orWhere('name', 'like', "%{$search}%");
+                    ->orWhere('name', 'like', "%{$search}%");
             });
         }
 
@@ -103,7 +103,7 @@ class AttendanceService
                 'can_checkin' => false,
                 'can_checkout' => true,
                 'attendance' => $todayAttendance,
-                'message' => 'Member sudah check-in hari ini dan belum check-out'
+                'message' => 'Member sudah check-in hari ini dan belum check-out',
             ];
         }
 
@@ -112,7 +112,7 @@ class AttendanceService
                 'can_checkin' => false,
                 'can_checkout' => false,
                 'attendance' => null,
-                'message' => 'Status member tidak aktif'
+                'message' => 'Status member tidak aktif',
             ];
         }
 
@@ -121,7 +121,7 @@ class AttendanceService
                 'can_checkin' => false,
                 'can_checkout' => false,
                 'attendance' => null,
-                'message' => 'Keanggotaan sudah expired'
+                'message' => 'Keanggotaan sudah expired',
             ];
         }
 
@@ -129,7 +129,7 @@ class AttendanceService
             'can_checkin' => true,
             'can_checkout' => false,
             'attendance' => null,
-            'message' => 'Member dapat check-in'
+            'message' => 'Member dapat check-in',
         ];
     }
 
@@ -182,7 +182,7 @@ class AttendanceService
                 $attendance->check_in_time->format('H:i:s'),
                 $attendance->check_out_time ? $attendance->check_out_time->format('H:i:s') : '-',
                 $attendance->creator->name ?? 'System',
-                $attendance->check_out_time ? 'Check Out' : 'Check In'
+                $attendance->check_out_time ? 'Check Out' : 'Check In',
             ];
         }
 
