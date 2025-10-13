@@ -15,8 +15,13 @@ class AttendanceService
 {
     public function getTodayAttendances(int $perPage = 10, ?string $search = null, ?string $statusFilter = null): LengthAwarePaginator
     {
+        return $this->getAttendancesByDate(Carbon::today()->format('Y-m-d'), $perPage, $search, $statusFilter);
+    }
+
+    public function getAttendancesByDate(string $date, int $perPage = 10, ?string $search = null, ?string $statusFilter = null): LengthAwarePaginator
+    {
         $query = Attendance::with(['member', 'creator'])
-            ->whereDate('check_in_time', Carbon::today());
+            ->whereDate('check_in_time', $date);
 
         // Apply search filter
         if ($search) {
@@ -38,12 +43,17 @@ class AttendanceService
 
     public function getTodayStats(): array
     {
+        return $this->getStatsByDate(Carbon::today()->format('Y-m-d'));
+    }
+
+    public function getStatsByDate(string $date): array
+    {
         return [
-            'total_checkins' => Attendance::whereDate('check_in_time', Carbon::today())->count(),
+            'total_checkins' => Attendance::whereDate('check_in_time', $date)->count(),
             'active_members' => Member::where('status', 'ACTIVE')
                 ->where('exp_date', '>=', Carbon::today())
                 ->count(),
-            'checked_in_today' => Attendance::whereDate('check_in_time', Carbon::today())
+            'checked_in_today' => Attendance::whereDate('check_in_time', $date)
                 ->distinct('member_id')
                 ->count(),
         ];
@@ -167,8 +177,13 @@ class AttendanceService
 
     public function exportTodayAttendances(): array
     {
+        return $this->exportAttendancesByDate(Carbon::today()->format('Y-m-d'));
+    }
+
+    public function exportAttendancesByDate(string $date): array
+    {
         $attendances = Attendance::with(['member', 'creator'])
-            ->whereDate('check_in_time', Carbon::today())
+            ->whereDate('check_in_time', $date)
             ->orderBy('check_in_time', 'desc')
             ->get();
 

@@ -22,12 +22,13 @@ class AttendanceController extends Controller
     {
         $search = $request->get('search');
         $statusFilter = $request->get('status');
+        $dateFilter = $request->get('date', now()->format('Y-m-d'));
 
-        $attendances = $this->attendanceService->getTodayAttendances(10, $search, $statusFilter);
-        $stats = $this->attendanceService->getTodayStats();
+        $attendances = $this->attendanceService->getAttendancesByDate($dateFilter, 10, $search, $statusFilter);
+        $stats = $this->attendanceService->getStatsByDate($dateFilter);
         $searchResults = collect();
 
-        return view('pages.main.attendance.attendance', compact('attendances', 'stats', 'searchResults', 'search', 'statusFilter'));
+        return view('pages.main.attendance.attendance', compact('attendances', 'stats', 'searchResults', 'search', 'statusFilter', 'dateFilter'));
     }
 
     public function checkInPage(Request $request): View
@@ -110,10 +111,11 @@ class AttendanceController extends Controller
         }
     }
 
-    public function exportTodayAttendances(): StreamedResponse
+    public function exportTodayAttendances(Request $request): StreamedResponse
     {
-        $data = $this->attendanceService->exportTodayAttendances();
-        $filename = 'absensi_'.now()->format('Y-m-d').'.csv';
+        $dateFilter = $request->get('date', now()->format('Y-m-d'));
+        $data = $this->attendanceService->exportAttendancesByDate($dateFilter);
+        $filename = 'absensi_'.$dateFilter.'.csv';
 
         $headers = [
             'Content-Type' => 'text/csv',

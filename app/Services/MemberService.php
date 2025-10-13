@@ -82,7 +82,7 @@ class MemberService
             $member = Member::findOrFail($id);
 
             // Extract membership dan payment data
-            $membershipDuration = $data['membership_duration'];
+            $membershipDuration = (int) $data['membership_duration'];
             $paymentMethod = $data['payment_method'];
             $paymentNotes = $data['payment_notes'] ?? null;
 
