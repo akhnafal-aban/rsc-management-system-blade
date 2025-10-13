@@ -160,40 +160,61 @@ class DashboardService
 
     private function getMemberGrowthPercentage(): ?array
     {
-        $lastMonth = Carbon::now()->subMonth();
-        $currentCount = Member::where('status', MemberStatus::ACTIVE)->count();
+        $startOfLastMonth = Carbon::now()->subMonth()->startOfMonth();
+        $endOfLastMonth = Carbon::now()->subMonth()->endOfMonth();
+
+        $currentCount = Member::where('status', MemberStatus::ACTIVE)
+            ->whereMonth('created_at', Carbon::now()->month)
+            ->count();
+
         $lastMonthCount = Member::where('status', MemberStatus::ACTIVE)
-            ->where('created_at', '<', $lastMonth)
+            ->whereBetween('created_at', [$startOfLastMonth, $endOfLastMonth])
             ->count();
 
         if ($lastMonthCount === 0) {
-            return null;
+            return ['type' => 'neutral'];
         }
 
         $growth = (($currentCount - $lastMonthCount) / $lastMonthCount) * 100;
 
+        if ($growth == 0) {
+            return [
+                'type' => 'stable',
+                'value' => '0%',
+            ];
+        }
+
         return [
-            'type' => $growth >= 0 ? 'increase' : 'decrease',
+            'type' => $growth > 0 ? 'increase' : 'decrease',
             'value' => number_format(abs($growth), 1).'%',
         ];
     }
 
     private function getTodayAttendanceChange(): ?array
     {
-        $yesterday = Carbon::yesterday();
         $today = Carbon::today();
+        $yesterday = Carbon::yesterday();
 
         $todayCount = Attendance::whereDate('check_in_time', $today)->count();
         $yesterdayCount = Attendance::whereDate('check_in_time', $yesterday)->count();
 
+        // Tidak ada data pembanding
         if ($yesterdayCount === 0) {
-            return null;
+            return ['type' => 'neutral'];
         }
 
         $change = (($todayCount - $yesterdayCount) / $yesterdayCount) * 100;
 
+        // Jika ada data tapi tidak ada perubahan
+        if ($change == 0) {
+            return [
+                'type' => 'stable',
+                'value' => '0%',
+            ];
+        }
+
         return [
-            'type' => $change >= 0 ? 'increase' : 'decrease',
+            'type' => $change > 0 ? 'increase' : 'decrease',
             'value' => number_format(abs($change), 1).'%',
         ];
     }
