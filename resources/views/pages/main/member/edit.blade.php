@@ -62,9 +62,26 @@
                     </div>
 
                     <div>
-                        <label for="exp_date" class="block text-sm font-medium text-card-foreground mb-2">Tanggal Kedaluwarsa *</label>
-                        <input type="date" id="exp_date" name="exp_date" value="{{ old('exp_date', $member->exp_date?->format('Y-m-d')) }}" required
+                        <label for="membership_duration" class="block text-sm font-medium text-card-foreground mb-2">Durasi Membership *</label>
+                        <select id="membership_duration" name="membership_duration" required
                             class="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent">
+                            <option value="">Pilih durasi membership</option>
+                            <option value="1" {{ old('membership_duration', $member->membership?->duration_months) == '1' ? 'selected' : '' }}>1 Bulan - Rp 150.000</option>
+                            <option value="3" {{ old('membership_duration', $member->membership?->duration_months) == '3' ? 'selected' : '' }}>3 Bulan - Rp 400.000</option>
+                            <option value="6" {{ old('membership_duration', $member->membership?->duration_months) == '6' ? 'selected' : '' }}>6 Bulan - Rp 750.000</option>
+                            <option value="12" {{ old('membership_duration', $member->membership?->duration_months) == '12' ? 'selected' : '' }}>12 Bulan - Rp 1.400.000</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="payment_method" class="block text-sm font-medium text-card-foreground mb-2">Metode Pembayaran *</label>
+                        <select id="payment_method" name="payment_method" required
+                            class="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent">
+                            <option value="">Pilih metode pembayaran</option>
+                            <option value="CASH" {{ old('payment_method', $member->payments->first()?->method) == 'CASH' ? 'selected' : '' }}>Tunai (CASH)</option>
+                            <option value="TRANSFER" {{ old('payment_method', $member->payments->first()?->method) == 'TRANSFER' ? 'selected' : '' }}>Transfer Bank</option>
+                            <option value="EWALLET" {{ old('payment_method', $member->payments->first()?->method) == 'EWALLET' ? 'selected' : '' }}>E-Wallet</option>
+                        </select>
                     </div>
 
                     <div>
@@ -75,6 +92,13 @@
                             <option value="INACTIVE" {{ old('status', $member->status->value) == 'INACTIVE' ? 'selected' : '' }}>Tidak Aktif</option>
                         </select>
                     </div>
+                </div>
+
+                <div class="mt-6">
+                    <label for="payment_notes" class="block text-sm font-medium text-card-foreground mb-2">Catatan Pembayaran</label>
+                    <textarea id="payment_notes" name="payment_notes" rows="3"
+                        class="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+                        placeholder="Catatan tambahan untuk pembayaran (opsional)">{{ old('payment_notes', $member->payments->first()?->notes) }}</textarea>
                 </div>
             </div>
 

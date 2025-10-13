@@ -292,7 +292,7 @@ class DashboardService
             Carbon::now()->endOfMonth()
         );
 
-        $target = 50000000; // 50 juta target bulanan
+        $target = 30000000;
         $percentage = ($currentRevenue / $target) * 100;
 
         return 'Rp '.number_format($currentRevenue, 0, ',', '.').' / Rp '.number_format($target, 0, ',', '.').' ('.number_format($percentage, 1).'%)';

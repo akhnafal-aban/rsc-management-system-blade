@@ -5,10 +5,17 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\Member;
+use Carbon\Carbon;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 
 class MemberService
 {
+    public function __construct(
+        private PaymentService $paymentService,
+        private MembershipService $membershipService
+    ) {}
+
     public function getAllMembers(array $filters = []): LengthAwarePaginator
     {
         $query = Member::with(['membership', 'attendances'])
@@ -39,18 +46,64 @@ class MemberService
 
     public function createMember(array $data): Member
     {
-        $data['member_code'] = $this->generateMemberId();
-        $data['status'] = $data['status'] ?? \App\Enums\MemberStatus::ACTIVE;
+        return DB::transaction(function () use ($data) {
+            // Generate member code dan set default status
+            $data['member_code'] = $this->generateMemberId();
+            $data['status'] = $data['status'] ?? \App\Enums\MemberStatus::ACTIVE;
 
-        return Member::create($data);
+            // Extract membership dan payment data
+            $membershipDuration = (int) $data['membership_duration'];
+            $paymentMethod = $data['payment_method'];
+            $paymentNotes = $data['payment_notes'] ?? null;
+
+            // Calculate exp_date automatically based on membership duration
+            $data['exp_date'] = Carbon::now()->addMonths($membershipDuration)->toDateString();
+
+            // Remove non-member fields dari data
+            unset($data['membership_duration'], $data['payment_method'], $data['payment_notes']);
+
+            // Create member
+            $member = Member::create($data);
+
+            // Create membership using MembershipService
+            $this->membershipService->createMembership($member, $membershipDuration);
+
+            // Create payment using PaymentService
+            $amount = $this->membershipService->getMembershipPrice($membershipDuration);
+            $this->paymentService->createPayment($member, $amount, $paymentMethod, $paymentNotes);
+
+            return $member->fresh(['membership', 'payments']);
+        });
     }
 
     public function updateMember(int $id, array $data): Member
     {
-        $member = Member::findOrFail($id);
-        $member->update($data);
+        return DB::transaction(function () use ($id, $data) {
+            $member = Member::findOrFail($id);
 
-        return $member->fresh();
+            // Extract membership dan payment data
+            $membershipDuration = $data['membership_duration'];
+            $paymentMethod = $data['payment_method'];
+            $paymentNotes = $data['payment_notes'] ?? null;
+
+            // Calculate exp_date automatically based on membership duration
+            $data['exp_date'] = Carbon::now()->addMonths($membershipDuration)->toDateString();
+
+            // Remove non-member fields dari data
+            unset($data['membership_duration'], $data['payment_method'], $data['payment_notes']);
+
+            // Update member
+            $member->update($data);
+
+            // Update membership using MembershipService
+            $this->membershipService->createMembership($member, $membershipDuration);
+
+            // Create new payment using PaymentService
+            $amount = $this->membershipService->getMembershipPrice($membershipDuration);
+            $this->paymentService->createPayment($member, $amount, $paymentMethod, $paymentNotes);
+
+            return $member->fresh(['membership', 'payments']);
+        });
     }
 
     public function deleteMember(int $id): bool
@@ -86,14 +139,14 @@ class MemberService
         return [
             'total_visits' => $totalVisits,
             'last_check_in' => $lastCheckIn?->created_at,
-            'membership_status' => $member->membership?->status ?? 'Tidak ada membership',
-            'membership_expiry' => $member->membership?->expiry_date,
+            'membership_status' => $member->membership ? 'Aktif' : 'Tidak ada membership',
+            'membership_expiry' => $member->membership?->end_date,
         ];
     }
 
     private function generateMemberId(): string
     {
-        $prefix = 'MEM';
+        $prefix = '12-';
         $lastMember = Member::orderBy('id', 'desc')->first();
 
         if ($lastMember) {
@@ -103,6 +156,6 @@ class MemberService
             $newId = 1;
         }
 
-        return $prefix.str_pad((string) $newId, 6, '0', STR_PAD_LEFT);
+        return $prefix.$newId;
     }
 }
