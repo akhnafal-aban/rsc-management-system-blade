@@ -9,7 +9,7 @@
                     <x-ui.icon name="refresh" class="w-4 h-4 mr-2" />
                     <span>Perbarui</span>
                 </a>
-                <a href="{{ route('attendance.export') }}"
+                <a href="{{ route('attendance.export', ['date' => $dateFilter]) }}"
                     class="inline-flex items-center px-6 py-2 border border-border bg-background text-foreground rounded-lg hover:bg-muted/50 transition-colors">
                     <x-ui.icon name="download" class="w-4 h-4 mr-2" />
                     <span>Ekspor</span>
@@ -71,25 +71,44 @@
         <!-- Today's Attendance Table -->
         <div class="bg-card text-card-foreground rounded-lg shadow-sm border border-border p-6">
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
-                <h3 class="text-lg font-semibold text-card-foreground">Absensi Hari Ini</h3>
-                <div class="mt-4 sm:mt-0 flex space-x-3">
-                    <!-- Search Input -->
+                <h3 class="text-lg font-semibold text-card-foreground">
+                    Absensi {{ $dateFilter === now()->format('Y-m-d') ? 'Hari Ini' : \Carbon\Carbon::parse($dateFilter)->format('d M Y') }}
+                </h3>
+                <div class="mt-4 sm:mt-0 flex flex-col sm:flex-row gap-3">
+                    <!-- Quick Date Buttons -->
+                    <div class="flex gap-2">
+                        <a href="{{ route('attendance.index', ['date' => now()->format('Y-m-d')] + request()->except('date')) }}"
+                            class="px-3 py-1 text-xs bg-{{ $dateFilter === now()->format('Y-m-d') ? 'primary' : 'background' }} text-{{ $dateFilter === now()->format('Y-m-d') ? 'primary-foreground' : 'foreground' }} border border-border rounded-md hover:bg-muted/50 transition-colors">
+                            Hari Ini
+                        </a>
+                        <a href="{{ route('attendance.index', ['date' => now()->subDay()->format('Y-m-d')] + request()->except('date')) }}"
+                            class="px-3 py-1 text-xs bg-{{ $dateFilter === now()->subDay()->format('Y-m-d') ? 'primary' : 'background' }} text-{{ $dateFilter === now()->subDay()->format('Y-m-d') ? 'primary-foreground' : 'foreground' }} border border-border rounded-md hover:bg-muted/50 transition-colors">
+                            Kemarin
+                        </a>
+                    </div>
+                    
+                    <!-- Search and Filter Form -->
                     <form method="GET" action="{{ route('attendance.index') }}" class="flex gap-2">
-                        <div class="relative ">
+                        <div class="relative">
                             <input type="text" name="search" value="{{ $search }}"
                                 class="pl-10 pr-10 py-2 bg-input border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
                                 placeholder="Cari nama atau ID member..." />
                             <x-ui.icon name="search"
                                 class="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 transform -translate-y-1/2" />
                         </div>
+                        
+                        <!-- Date Filter -->
+                        <input type="date" name="date" value="{{ $dateFilter }}"
+                            class="px-3 py-2 bg-input border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+                        
                         <!-- Status Filter -->
                         <select name="status"
                             class="px-3 py-2 bg-input border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-ring">
                             <option value="">Semua Status</option>
                             <option value="checkin" {{ $statusFilter === 'checkin' ? 'selected' : '' }}>Check In</option>
-                            <option value="checkout" {{ $statusFilter === 'checkout' ? 'selected' : '' }}>Check Out
-                            </option>
+                            <option value="checkout" {{ $statusFilter === 'checkout' ? 'selected' : '' }}>Check Out</option>
                         </select>
+                        
                         <button type="submit"
                             class="px-4 py-2 bg-background border border-border text-foreground rounded-lg hover:bg-muted/50 transition-colors">
                             Filter

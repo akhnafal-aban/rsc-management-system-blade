@@ -41,7 +41,7 @@
                 @include('components.partials.stat-card', [
                     'title' => $stat['title'] ?? '',
                     'value' => $stat['value'] ?? '',
-                    'change' => $stat['change'] ?? null,
+                    'change' => $stat['change'] ?? '',
                     'icon' => $stat['icon'] ?? null,
                 ])
             @endforeach
@@ -49,7 +49,7 @@
 
         <!-- Insight Manager -->
         <div class="bg-card rounded-lg shadow-sm border border-border p-6">
-            <h3 class="text-lg font-semibold text-card-foreground mb-4">Insight Manager</h3>
+            <h3 class="text-lg font-semibold text-card-foreground mb-4">Insight Baru</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 @foreach ($insights ?? [] as $insight)
                     <div class="p-4 rounded-lg border border-border {{ $insight['type'] === 'success' ? 'bg-green-50 dark:bg-green-900/20' : ($insight['type'] === 'warning' ? 'bg-yellow-50 dark:bg-yellow-900/20' : 'bg-blue-50 dark:bg-blue-900/20') }}">
