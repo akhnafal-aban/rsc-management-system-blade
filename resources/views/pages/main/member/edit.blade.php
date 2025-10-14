@@ -36,72 +36,97 @@
             @csrf
             @method('PUT')
             
-            <div class="bg-card p-6 rounded-lg shadow-sm border border-border">
-                <h2 class="text-lg font-semibold text-card-foreground mb-4">Informasi Member</h2>
-                
+            <div class="space-y-6">
+                <!-- Grid Utama -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Nama Lengkap -->
                     <div>
-                        <label for="name" class="block text-sm font-medium text-card-foreground mb-2">Nama Lengkap *</label>
+                        <label for="name" class="block text-sm font-medium text-card-foreground mb-2">
+                            Nama Lengkap <span class="text-destructive">*</span>
+                        </label>
                         <input type="text" id="name" name="name" value="{{ old('name', $member->name) }}" required
-                            class="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+                            class="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground 
+                            placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
                             placeholder="Masukkan nama lengkap">
                     </div>
-
+            
+                    <!-- Email -->
                     <div>
                         <label for="email" class="block text-sm font-medium text-card-foreground mb-2">Email</label>
                         <input type="email" id="email" name="email" value="{{ old('email', $member->email) }}"
-                            class="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+                            class="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground 
+                            placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
                             placeholder="contoh@email.com">
                     </div>
-
-                    <div>
-                        <label for="phone" class="block text-sm font-medium text-card-foreground mb-2">Nomor Telepon</label>
-                        <input type="tel" id="phone" name="phone" value="{{ old('phone', $member->phone) }}"
-                            class="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
-                            placeholder="08123456789">
+                </div>
+            
+                <!-- Bagian Nomor Telepon + Metode Pembayaran & Perpanjang Membership -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Kiri: Telepon dan Pembayaran -->
+                    <div class="space-y-6">
+                        <!-- Nomor Telepon -->
+                        <div>
+                            <label for="phone" class="block text-sm font-medium text-card-foreground mb-2">Nomor Telepon</label>
+                            <input type="tel" id="phone" name="phone" value="{{ old('phone', $member->phone) }}"
+                                class="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground 
+                                placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+                                placeholder="08123456789">
+                        </div>
+            
+                        <!-- Metode Pembayaran -->
+                        <div>
+                            <label for="payment_method" class="block text-sm font-medium text-card-foreground mb-2">
+                                Metode Pembayaran <span class="text-destructive">*</span>
+                            </label>
+                            <select id="payment_method" name="payment_method" required
+                                class="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground 
+                                focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent">
+                                <option value="">Pilih metode pembayaran</option>
+                                <option value="CASH" {{ old('payment_method', $member->payments->first()?->method) == 'CASH' ? 'selected' : '' }}>Tunai (CASH)</option>
+                                <option value="TRANSFER" {{ old('payment_method', $member->payments->first()?->method) == 'TRANSFER' ? 'selected' : '' }}>Transfer Bank</option>
+                                <option value="EWALLET" {{ old('payment_method', $member->payments->first()?->method) == 'EWALLET' ? 'selected' : '' }}>E-Wallet</option>
+                            </select>
+                        </div>
                     </div>
-
+            
+                    <!-- Kanan: Perpanjang Membership -->
                     <div>
-                        <label for="membership_duration" class="block text-sm font-medium text-card-foreground mb-2">Durasi Membership *</label>
+                        <label for="membership_duration" class="block text-sm font-medium text-card-foreground mb-2">
+                            Perpanjang Membership <span class="text-destructive">*</span>
+                        </label>
+            
+                        <div class="bg-muted/30 border border-border rounded-lg p-3 mb-3">
+                            <p class="text-sm text-muted-foreground">
+                                <strong>Masa Aktif Saat Ini:</strong>
+                                {{ $member->exp_date ? \Carbon\Carbon::parse($member->exp_date)->format('d M Y') : 'Tidak ada' }}
+                            </p>
+                            <p class="text-xs text-muted-foreground mt-1">
+                                Durasi yang dipilih akan ditambahkan ke masa aktif saat ini.
+                            </p>
+                        </div>
+            
                         <select id="membership_duration" name="membership_duration" required
-                            class="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent">
-                            <option value="">Pilih durasi membership</option>
-                            <option value="1" {{ old('membership_duration', $member->membership?->duration_months) == '1' ? 'selected' : '' }}>1 Bulan - Rp 150.000</option>
-                            <option value="3" {{ old('membership_duration', $member->membership?->duration_months) == '3' ? 'selected' : '' }}>3 Bulan - Rp 400.000</option>
-                            <option value="6" {{ old('membership_duration', $member->membership?->duration_months) == '6' ? 'selected' : '' }}>6 Bulan - Rp 750.000</option>
-                            <option value="12" {{ old('membership_duration', $member->membership?->duration_months) == '12' ? 'selected' : '' }}>12 Bulan - Rp 1.400.000</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label for="payment_method" class="block text-sm font-medium text-card-foreground mb-2">Metode Pembayaran *</label>
-                        <select id="payment_method" name="payment_method" required
-                            class="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent">
-                            <option value="">Pilih metode pembayaran</option>
-                            <option value="CASH" {{ old('payment_method', $member->payments->first()?->method) == 'CASH' ? 'selected' : '' }}>Tunai (CASH)</option>
-                            <option value="TRANSFER" {{ old('payment_method', $member->payments->first()?->method) == 'TRANSFER' ? 'selected' : '' }}>Transfer Bank</option>
-                            <option value="EWALLET" {{ old('payment_method', $member->payments->first()?->method) == 'EWALLET' ? 'selected' : '' }}>E-Wallet</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label for="status" class="block text-sm font-medium text-card-foreground mb-2">Status</label>
-                        <select id="status" name="status"
-                            class="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent">
-                            <option value="ACTIVE" {{ old('status', $member->status->value) == 'ACTIVE' ? 'selected' : '' }}>Aktif</option>
-                            <option value="INACTIVE" {{ old('status', $member->status->value) == 'INACTIVE' ? 'selected' : '' }}>Tidak Aktif</option>
+                            class="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground 
+                            focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent">
+                            <option value="">Pilih durasi perpanjangan</option>
+                            <option value="1" {{ old('membership_duration') == '1' ? 'selected' : '' }}>1 Bulan - Rp 150.000</option>
+                            <option value="3" {{ old('membership_duration') == '3' ? 'selected' : '' }}>3 Bulan - Rp 400.000</option>
+                            <option value="6" {{ old('membership_duration') == '6' ? 'selected' : '' }}>6 Bulan - Rp 750.000</option>
+                            <option value="12" {{ old('membership_duration') == '12' ? 'selected' : '' }}>12 Bulan - Rp 1.400.000</option>
                         </select>
                     </div>
                 </div>
-
-                <div class="mt-6">
+            
+                <!-- Catatan Pembayaran -->
+                <div>
                     <label for="payment_notes" class="block text-sm font-medium text-card-foreground mb-2">Catatan Pembayaran</label>
                     <textarea id="payment_notes" name="payment_notes" rows="3"
-                        class="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
-                        placeholder="Catatan tambahan untuk pembayaran (opsional)">{{ old('payment_notes', $member->payments->first()?->notes) }}</textarea>
+                        class="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground 
+                        placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+                        placeholder="Catatan untuk pembayaran perpanjangan membership (opsional)">{{ old('payment_notes') }}</textarea>
                 </div>
             </div>
-
+            
             <div class="flex items-center justify-end space-x-4">
                 <a href="{{ route('member.show', $member) }}" 
                     class="px-6 py-2 border border-border bg-background text-foreground rounded-lg hover:bg-muted/50 transition-colors">
@@ -110,7 +135,7 @@
                 <button type="submit"
                     class="px-6 py-2 rounded-lg bubblegum-button-primary text-chart-2-foreground transition-colors">
                     <x-ui.icon name="edit" class="w-4 h-4 mr-2 inline" />
-                    Simpan Perubahan
+                    Perpanjang Membership
                 </button>
             </div>
         </form>

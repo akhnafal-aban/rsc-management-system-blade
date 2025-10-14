@@ -23,7 +23,7 @@
 
         @if (!empty($icon))
             <div class="p-3 rounded-lg bg-chart-1/20 text-chart-1">
-                <span class="{{ $icon }} w-5 h-5"></span>
+                <x-ui.icon name="{{ $icon }}" class="w-8 h-8" />
             </div>
         @endif
     </div>

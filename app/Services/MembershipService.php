@@ -17,6 +17,21 @@ class MembershipService
         return Membership::create($membershipData);
     }
 
+    public function createMembershipExtension(Member $member, int $durationMonths): Membership
+    {
+        // Get current membership end date or use current date as start
+        $currentMembership = $member->membership;
+        $startDate = $currentMembership ? Carbon::parse($currentMembership->end_date)->addDay() : Carbon::now();
+        $endDate = $startDate->copy()->addMonths($durationMonths);
+
+        return Membership::create([
+            'member_id' => $member->id,
+            'start_date' => $startDate->toDateString(),
+            'end_date' => $endDate->toDateString(),
+            'duration_months' => $durationMonths,
+        ]);
+    }
+
     public function getActiveMembership(Member $member): ?Membership
     {
         return $member->membership()->where('end_date', '>=', Carbon::now()->toDateString())->first();

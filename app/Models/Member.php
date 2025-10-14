@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\MemberStatus;
+use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -52,5 +54,37 @@ class Member extends Model
     public function payments(): HasMany
     {
         return $this->hasMany(Payment::class);
+    }
+
+    public function scopeActive(Builder $query): Builder
+    {
+        return $query->where('status', MemberStatus::ACTIVE)
+            ->where('exp_date', '>=', Carbon::today()->toDateString());
+    }
+
+    public function scopeInactive(Builder $query): Builder
+    {
+        return $query->where('status', MemberStatus::INACTIVE);
+    }
+
+    public function scopeExpired(Builder $query): Builder
+    {
+        return $query->where('exp_date', '<', Carbon::today()->toDateString());
+    }
+
+    public function scopeActiveOrExpired(Builder $query): Builder
+    {
+        return $query->where('status', MemberStatus::ACTIVE)
+            ->where('exp_date', '<', Carbon::today()->toDateString());
+    }
+
+    public function isExpired(): bool
+    {
+        return $this->exp_date < Carbon::today()->toDateString();
+    }
+
+    public function isActive(): bool
+    {
+        return $this->status === MemberStatus::ACTIVE && ! $this->isExpired();
     }
 }

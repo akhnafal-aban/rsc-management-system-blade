@@ -86,8 +86,10 @@ class MemberService
             $paymentMethod = $data['payment_method'];
             $paymentNotes = $data['payment_notes'] ?? null;
 
-            // Calculate exp_date automatically based on membership duration
-            $data['exp_date'] = Carbon::now()->addMonths($membershipDuration)->toDateString();
+            // Calculate new exp_date by extending current membership
+            $currentExpDate = $member->exp_date;
+            $newExpDate = Carbon::parse($currentExpDate)->addMonths($membershipDuration)->toDateString();
+            $data['exp_date'] = $newExpDate;
 
             // Remove non-member fields dari data
             unset($data['membership_duration'], $data['payment_method'], $data['payment_notes']);
@@ -95,8 +97,8 @@ class MemberService
             // Update member
             $member->update($data);
 
-            // Update membership using MembershipService
-            $this->membershipService->createMembership($member, $membershipDuration);
+            // Create new membership record for extension
+            $this->membershipService->createMembershipExtension($member, $membershipDuration);
 
             // Create new payment using PaymentService
             $amount = $this->membershipService->getMembershipPrice($membershipDuration);

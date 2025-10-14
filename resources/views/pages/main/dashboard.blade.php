@@ -2,9 +2,15 @@
 @section('title', 'Dashboard')
 @section('content')
     <div class="space-y-6">
-        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-            <div>
-                <h1 class="text-2xl font-bold text-foreground">Dashboard</h1>
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
+            <h1 class="text-2xl font-bold text-foreground mb-3 sm:mb-0">Dashboard</h1>
+        
+            <div class="flex flex-wrap justify-end gap-3">
+                <a href="{{ route('dashboard') }}"
+                    class="inline-flex items-center px-6 py-2 border border-border bg-background text-foreground rounded-lg hover:bg-muted/50 transition-colors">
+                    <x-ui.icon name="refresh" class="w-4 h-4 mr-2" />
+                    <span>Perbarui</span>
+                </a>
             </div>
         </div>
 
@@ -12,25 +18,25 @@
         <div class="bg-card rounded-lg shadow-sm border border-border p-6">
             <h3 class="text-lg font-semibold text-card-foreground mb-4">Aksi Cepat</h3>
             <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <a href="#"
+                <a href="{{ route('attendance.check-in') }}"
                     class="p-4 border-2 border-dashed border-border rounded-lg hover:border-chart-1 hover:bg-chart-1/10 transition-colors text-center">
-                    <span class="icon-user-check w-8 h-8 text-muted-foreground mx-auto mb-2 block"></span>
+                    <x-ui.icon name="user-check" class="w-8 h-8 text-muted-foreground mx-auto mb-2 block" />
                     <span class="text-sm font-medium text-card-foreground">Check-in Member</span>
                 </a>
-                <a href="#"
+                <a href="{{ route('member.create') }}"
                     class="p-4 border-2 border-dashed border-border rounded-lg hover:border-chart-2 hover:bg-chart-2/10 transition-colors text-center">
-                    <span class="icon-users w-8 h-8 text-muted-foreground mx-auto mb-2 block"></span>
+                    <x-ui.icon name="users" class="w-8 h-8 text-muted-foreground mx-auto mb-2 block" />
                     <span class="text-sm font-medium text-card-foreground">Tambah Member</span>
                 </a>
                 <a href="#"
                     class="p-4 border-2 border-dashed border-border rounded-lg hover:border-chart-3 hover:bg-chart-3/10 transition-colors text-center">
-                    <span class="icon-trending-up w-8 h-8 text-muted-foreground mx-auto mb-2 block"></span>
-                    <span class="text-sm font-medium text-card-foreground">Lihat Laporan</span>
+                    <x-ui.icon name="trending-up" class="w-8 h-8 text-muted-foreground mx-auto mb-2 block" />
+                    <span class="text-sm font-medium text-card-foreground">Coming Soon</span>
                 </a>
                 <a href="#"
                     class="p-4 border-2 border-dashed border-border rounded-lg hover:border-chart-4 hover:bg-chart-4/10 transition-colors text-center">
-                    <span class="icon-dollar-sign w-8 h-8 text-muted-foreground mx-auto mb-2 block"></span>
-                    <span class="text-sm font-medium text-card-foreground">Pembayaran</span>
+                    <x-ui.icon name="dollar-sign" class="w-8 h-8 text-muted-foreground mx-auto mb-2 block" />
+                    <span class="text-sm font-medium text-card-foreground">Coming soon </span>
                 </a>
             </div>
         </div>

@@ -2,23 +2,22 @@
 @section('title', 'Manajemen Member')
 @section('content')
     <div class="space-y-6">
-        {{-- <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-            <h1 class="text-2xl font-bold text-foreground">Manajemen Member</h1>
-            <p class="text-muted-foreground mt-1">Kelola data member gym dan detail informasinya</p>
-        </div> --}}
-        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-
-            <a href="#"
-                class="inline-flex items-center px-6 py-2 border border-border bg-background text-foreground rounded-lg hover:bg-muted/50 transition-colors">
-                <x-ui.icon name="download" class="w-4 h-4 mr-2" />
-                <span>Ekspor</span>
-            </a>
-            <a href="{{ route('member.create') }}"
-                class="inline-flex items-center px-6 py-2 rounded-lg bubblegum-button-primary text-chart-2-foreground transition-colors">
-                <x-ui.icon name="plus" class="w-4 h-4 mr-2" />
-                <span>Tambah Member</span>
-            </a>
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+            <h1 class="text-2xl font-bold text-foreground">Members Management</h1>
+            <div class="flex items-center gap-3 w-full sm:w-auto justify-end">
+                <a href="#"
+                    class="inline-flex items-center justify-center px-5 py-2 border border-border bg-background text-foreground rounded-lg hover:bg-muted/50 transition-colors w-full sm:w-auto">
+                    <x-ui.icon name="download" class="w-4 h-4 mr-2" />
+                    <span>Ekspor</span>
+                </a>
+                <a href="{{ route('member.create') }}"
+                    class="inline-flex items-center justify-center px-5 py-2 rounded-lg bubblegum-button-primary text-chart-2-foreground transition-colors w-full sm:w-auto">
+                    <x-ui.icon name="plus" class="w-4 h-4 mr-2" />
+                    <span>Tambah Member</span>
+                </a>
+            </div>
         </div>
+        
         <form method="GET" action="{{ route('member.index') }}" class="bg-card p-4 rounded-lg shadow-sm border border-border">
             <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0 lg:space-x-4">
                 <div class="flex-1 relative">

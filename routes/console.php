@@ -2,7 +2,36 @@
 
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schedule;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
+
+// Schedule membership expiration check to run daily at midnight
+Schedule::command('memberships:expire')
+    ->dailyAt('00:00')
+    ->withoutOverlapping()
+    ->runInBackground()
+    ->onSuccess(function () {
+        // Log success if needed
+        Log::info('Membership expiration check completed successfully');
+    })
+    ->onFailure(function () {
+        // Log failure if needed
+        Log::error('Membership expiration check failed');
+    });
+
+// Schedule auto check-out for members checked in for more than 5 hours
+// Run every hour to check for members who need auto check-out
+Schedule::command('attendance:auto-checkout --hours=5')
+    ->hourly()
+    ->withoutOverlapping()
+    ->runInBackground()
+    ->onSuccess(function () {
+        Log::info('Auto check-out process completed successfully');
+    })
+    ->onFailure(function () {
+        Log::error('Auto check-out process failed');
+    });

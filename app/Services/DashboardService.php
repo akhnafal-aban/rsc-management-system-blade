@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Enums\MemberStatus;
 use App\Models\Attendance;
 use App\Models\Member;
 use App\Models\Payment;
@@ -32,27 +31,27 @@ class DashboardService
         return [
             [
                 'title' => 'Member Aktif',
-                'value' => Member::where('status', MemberStatus::ACTIVE)->count(),
+                'value' => Member::active()->count(),
                 'change' => $this->getMemberGrowthPercentage(),
-                'icon' => 'icon-users',
+                'icon' => 'users',
             ],
             [
                 'title' => 'Check-in Hari Ini',
                 'value' => Attendance::whereDate('check_in_time', $today)->count(),
                 'change' => $this->getTodayAttendanceChange(),
-                'icon' => 'icon-user-check',
+                'icon' => 'user-check',
             ],
             [
                 'title' => 'Rata-rata Mingguan',
                 'value' => $this->getWeeklyAverage(),
                 'change' => $this->getWeeklyTrend(),
-                'icon' => 'icon-trending-up',
+                'icon' => 'trending-up',
             ],
             [
                 'title' => 'Pendapatan Bulanan',
                 'value' => 'Rp '.number_format($this->getMonthlyRevenue($startOfMonth, $endOfMonth), 0, ',', '.'),
                 'change' => $this->getRevenueGrowthPercentage($startOfMonth, $endOfMonth),
-                'icon' => 'icon-dollar-sign',
+                'icon' => 'dollar-sign',
             ],
         ];
     }
@@ -103,9 +102,9 @@ class DashboardService
 
     private function getMemberDistributionData(): array
     {
-        $activeMembers = Member::where('status', MemberStatus::ACTIVE)->count();
-        $inactiveMembers = Member::where('status', MemberStatus::INACTIVE)->count();
-        $expiredMembers = Member::where('exp_date', '<', Carbon::now())->count();
+        $activeMembers = Member::active()->count();
+        $inactiveMembers = Member::inactive()->count();
+        $expiredMembers = Member::expired()->count();
 
         return [
             'labels' => ['Aktif', 'Tidak Aktif', 'Kedaluwarsa'],
@@ -163,11 +162,11 @@ class DashboardService
         $startOfLastMonth = Carbon::now()->subMonth()->startOfMonth();
         $endOfLastMonth = Carbon::now()->subMonth()->endOfMonth();
 
-        $currentCount = Member::where('status', MemberStatus::ACTIVE)
+        $currentCount = Member::active()
             ->whereMonth('created_at', Carbon::now()->month)
             ->count();
 
-        $lastMonthCount = Member::where('status', MemberStatus::ACTIVE)
+        $lastMonthCount = Member::active()
             ->whereBetween('created_at', [$startOfLastMonth, $endOfLastMonth])
             ->count();
 
@@ -299,8 +298,8 @@ class DashboardService
 
     private function getInactiveMembersAlert(): string
     {
-        $inactiveCount = Member::where('last_check_in', '<', Carbon::now()->subDays(7))
-            ->where('status', MemberStatus::ACTIVE)
+        $inactiveCount = Member::active()
+            ->where('last_check_in', '<', Carbon::now()->subDays(7))
             ->count();
 
         return $inactiveCount > 0 ? $inactiveCount.' member belum check-in selama 7 hari terakhir' : 'Semua member aktif';

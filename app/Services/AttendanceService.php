@@ -50,9 +50,7 @@ class AttendanceService
     {
         return [
             'total_checkins' => Attendance::whereDate('check_in_time', $date)->count(),
-            'active_members' => Member::where('status', 'ACTIVE')
-                ->where('exp_date', '>=', Carbon::today())
-                ->count(),
+            'active_members' => Member::active()->count(),
             'checked_in_today' => Attendance::whereDate('check_in_time', $date)
                 ->distinct('member_id')
                 ->count(),
@@ -61,8 +59,7 @@ class AttendanceService
 
     public function searchMembers(string $query): Collection
     {
-        return Member::where('status', 'ACTIVE')
-            ->where('exp_date', '>=', Carbon::today())
+        return Member::active()
             ->where(function ($q) use ($query) {
                 $q->where('name', 'LIKE', "%{$query}%")
                     ->orWhere('member_code', 'LIKE', "%{$query}%")
@@ -84,7 +81,7 @@ class AttendanceService
     public function searchActiveMembers(?string $search = null, int $perPage = 10): LengthAwarePaginator
     {
         $query = Member::select('id', 'member_code', 'name', 'exp_date')
-            ->where('status', 'ACTIVE');
+            ->active();
         // ->whereDate('exp_date', '>=', Carbon::today()->toDateString());
 
         if (! empty($search = trim($search ?? ''))) {
