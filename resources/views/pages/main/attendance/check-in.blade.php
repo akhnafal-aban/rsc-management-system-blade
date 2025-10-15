@@ -34,37 +34,68 @@
                 <tr>
                     <th class="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Member ID</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Nama</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Tanggal Expired</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Aksi</th>
                 </tr>
             </thead>
             <tbody class="bg-card divide-y divide-border">
                 @forelse ($members as $member)
-                    <tr class="hover:bg-muted/50 transition-colors">
+                    @php
+                        $isActive = $member->status->value === 'ACTIVE' && $member->exp_date >= now()->toDateString();
+                        $isExpired = $member->exp_date < now()->toDateString();
+                    @endphp
+                    <tr class="hover:bg-muted/50 transition-colors {{ !$isActive ? 'opacity-75' : '' }}">
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-card-foreground">
                             {{ $member->member_code }}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-card-foreground">
                             {{ $member->name }}
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-card-foreground">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            @if($member->status->value === 'ACTIVE')
+                                @if($isExpired)
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">
+                                        EXPIRED
+                                    </span>
+                                @else
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                                        ACTIVE
+                                    </span>
+                                @endif
+                            @else
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
+                                    INACTIVE
+                                </span>
+                            @endif
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-card-foreground {{ $isExpired ? 'text-red-600 dark:text-red-400' : '' }}">
                             {{ \Carbon\Carbon::parse($member->exp_date)->format('d M Y') }}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
-                            <form method="POST" action="{{ route('attendance.checkin') }}">
-                                @csrf
-                                <input type="hidden" name="member_id" value="{{ $member->id }}">
+                            @if($isActive)
+                                <form method="POST" action="{{ route('attendance.checkin') }}">
+                                    @csrf
+                                    <input type="hidden" name="member_id" value="{{ $member->id }}">
+                                    <button
+                                        type="submit"
+                                        class="px-4 py-1 text-xs bubblegum-button bubblegum-button-primary rounded-lg">
+                                        Check In
+                                    </button>
+                                </form>
+                            @else
                                 <button
-                                    type="submit"
-                                    class="px-4 py-1 text-xs bubblegum-button bubblegum-button-primary rounded-lg">
+                                    type="button"
+                                    disabled
+                                    class="px-4 py-1 text-xs bg-gray-100 text-gray-400 rounded-lg cursor-not-allowed dark:bg-gray-800 dark:text-gray-600">
                                     Check In
                                 </button>
-                            </form>
+                            @endif
                         </td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="4" class="px-6 py-12 text-center text-muted-foreground">
+                        <td colspan="5" class="px-6 py-12 text-center text-muted-foreground">
                             <x-ui.icon name="user-search" class="w-12 h-12 mx-auto mb-2" />
                             <p>Tidak ada member ditemukan.</p>
                         </td>

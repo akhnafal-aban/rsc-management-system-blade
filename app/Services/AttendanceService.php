@@ -80,9 +80,7 @@ class AttendanceService
 
     public function searchActiveMembers(?string $search = null, int $perPage = 10): LengthAwarePaginator
     {
-        $query = Member::select('id', 'member_code', 'name', 'exp_date')
-            ->active();
-        // ->whereDate('exp_date', '>=', Carbon::today()->toDateString());
+        $query = Member::select('id', 'member_code', 'name', 'exp_date', 'status');
 
         if (! empty($search = trim($search ?? ''))) {
             $query->where(function ($q) use ($search) {
@@ -92,6 +90,7 @@ class AttendanceService
         }
 
         return $query
+            ->orderByRaw("CASE WHEN status = 'ACTIVE' THEN 1 ELSE 2 END") // ACTIVE first, then INACTIVE
             ->orderBy('member_code')
             ->orderBy('name')
             ->paginate($perPage)
