@@ -180,7 +180,6 @@ class DashboardService
 
             return [
                 'type' => 'neutral',
-                'value' => '0%',
             ];
         }
 
@@ -275,10 +274,26 @@ class DashboardService
         $lastMonthRevenue = $this->getMonthlyRevenue($lastMonth, $lastMonthEnd);
 
         if ($lastMonthRevenue === 0) {
-            return null;
+            if ($currentRevenue > 0) {
+                return [
+                    'type' => 'increase',
+                    'value' => '100%',
+                ];
+            }
+
+            return [
+                'type' => 'neutral',
+            ];
         }
 
         $growth = (($currentRevenue - $lastMonthRevenue) / $lastMonthRevenue) * 100;
+
+        if (!is_finite($growth) || $growth == 0) {
+            return [
+                'type' => 'stable',
+                'value' => '0%',
+            ];
+        }
 
         return [
             'type' => $growth >= 0 ? 'increase' : 'decrease',
