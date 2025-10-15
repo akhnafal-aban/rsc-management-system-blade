@@ -25,7 +25,7 @@ Schedule::command('memberships:expire')
 
 // Schedule auto check-out for members checked in for more than 5 hours
 // Run every hour to check for members who need auto check-out
-Schedule::command('attendance:auto-checkout --hours=5')
+Schedule::command('attendance:auto-checkout --hours=3')
     ->hourly()
     ->withoutOverlapping()
     ->runInBackground()

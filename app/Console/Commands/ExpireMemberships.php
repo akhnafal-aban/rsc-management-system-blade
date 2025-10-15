@@ -41,15 +41,12 @@ class ExpireMemberships extends Command
             return Command::SUCCESS;
         }
 
-        if ($this->confirm('Do you want to expire these memberships?')) {
-            $updated = Member::where('status', MemberStatus::ACTIVE)
-                ->where('exp_date', '<', Carbon::today()->toDateString())
-                ->update(['status' => MemberStatus::INACTIVE]);
+        $updated = Member::where('status', MemberStatus::ACTIVE)
+            ->where('exp_date', '<', Carbon::today()->toDateString())
+            ->update(['status' => MemberStatus::INACTIVE]);
 
-            $this->info("Successfully expired {$updated} memberships.");
-        } else {
-            $this->info('Operation cancelled.');
-        }
+        $this->info("Automatically expired {$updated} memberships.");
+
 
         return Command::SUCCESS;
     }
