@@ -14,48 +14,56 @@ class UserSeeder extends Seeder
 
         // Create specific admin users
         User::create([
-            'name' => 'aban',
-            'email' => 'aban@aban',
-            'password' => Hash::make('password'),
+            'name' => 'Resha',
+            'email' => 'resha@gmail.com',
+            'password' => Hash::make('master12sc'),
             'role' => 'ADMIN',
             'email_verified_at' => now(),
         ]);
 
         User::create([
-            'name' => 'Manager RSC',
-            'email' => 'manager@rsc.com',
-            'password' => Hash::make('password'),
+            'name' => 'Aban',
+            'email' => 'akhnafal03@gmail.com',
+            'password' => Hash::make('developer12sc'),
             'role' => 'ADMIN',
             'email_verified_at' => now(),
         ]);
 
         // Create specific staff users
         User::create([
-            'name' => 'abanstaff',
-            'email' => 'aban@staff',
-            'password' => Hash::make('password'),
+            'name' => 'Reyhan',
+            'email' => 'reyhan@gmail.com',
+            'password' => Hash::make('staff12sc1'),
             'role' => 'STAFF',
             'email_verified_at' => now(),
         ]);
 
         User::create([
-            'name' => 'Receptionist',
-            'email' => 'receptionist@rsc.com',
-            'password' => Hash::make('password'),
+            'name' => 'Dzaky',
+            'email' => 'dzaky@gmail.com',
+            'password' => Hash::make('staff12sc2'),
+            'role' => 'STAFF',
+            'email_verified_at' => now(),
+        ]);
+
+        User::create([
+            'name' => 'Adlan',
+            'email' => 'adlan@gmail.com',
+            'password' => Hash::make('staff12sc3'),
             'role' => 'STAFF',
             'email_verified_at' => now(),
         ]);
 
         // Create additional random users
-        $adminUsers = User::factory(3)->create([
-            'role' => 'ADMIN',
-        ]);
+        // $adminUsers = User::factory(3)->create([
+        //     'role' => 'ADMIN',
+        // ]);
 
-        $staffUsers = User::factory(8)->create([
-            'role' => 'STAFF',
-        ]);
+        // $staffUsers = User::factory(8)->create([
+        //     'role' => 'STAFF',
+        // ]);
 
         $this->command->info('User data created successfully!');
-        $this->command->info('Created '.$adminUsers->count().' admin users and '.$staffUsers->count().' staff users');
+        // $this->command->info('Created '.$adminUsers->count().' admin users and '.$staffUsers->count().' staff users');
     }
 }

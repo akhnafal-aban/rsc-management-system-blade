@@ -22,8 +22,8 @@ class DatabaseSeeder extends Seeder
             UserSeeder::class,        // Create users first (needed for foreign keys)
             MemberSeeder::class,      // Create members
             MembershipSeeder::class,  // Create memberships (depends on members)
-            AttendanceSeeder::class,  // Create attendance (depends on members & users)
-            PaymentSeeder::class,     // Create payments (depends on members)
+            // AttendanceSeeder::class,  // Create attendance (depends on members & users)
+            // PaymentSeeder::class,     // Create payments (depends on members)
             // ActivityLogSeeder::class, // Create activity logs (depends on users)
             // ReportSeeder::class,      // Create reports (depends on users)
         ]);

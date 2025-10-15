@@ -17,7 +17,7 @@
         ['id' => 'attendance', 'label' => 'Absensi', 'icon' => 'user-check', 'route' => 'attendance.index'],
         ['id' => 'members', 'label' => 'Members', 'icon' => 'users', 'route' => 'member.index'],
         // ['id' => 'reports', 'label' => 'Laporan', 'icon' => 'bar-chart-3', 'route' => 'report.index'],
-        ['id' => 'settings', 'label' => 'Pengaturan', 'icon' => 'settings', 'route' => '#'],
+        // ['id' => 'settings', 'label' => 'Pengaturan', 'icon' => 'settings', 'route' => '#'],
     ]
 )
 
