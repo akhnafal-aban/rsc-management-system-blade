@@ -29,54 +29,42 @@ class AutoCheckOut extends Command
 
         if ($pendingCheckouts->isEmpty()) {
             $this->info('No members found for auto check-out.');
-
             return Command::SUCCESS;
         }
 
-        $this->info("Found {$pendingCheckouts->count()} members for auto check-out:");
-
-        foreach ($pendingCheckouts as $attendance) {
-            $checkInTime = Carbon::parse($attendance->check_in_time);
-            $hoursCheckedIn = $checkInTime->diffInHours(Carbon::now());
-
-            $this->line("- {$attendance->member->name} ({$attendance->member->member_code}) - Checked in: {$attendance->check_in_time->format('H:i')} ({$hoursCheckedIn} hours ago)");
-        }
+        $this->info("Found {$pendingCheckouts->count()} members for auto check-out.");
 
         if ($this->option('dry-run')) {
+            foreach ($pendingCheckouts as $attendance) {
+                $hoursCheckedIn = Carbon::parse($attendance->check_in_time)->diffInHours(Carbon::now());
+                $this->line("- {$attendance->member->name} ({$attendance->member->member_code}) - Checked in: {$attendance->check_in_time->format('H:i')} ({$hoursCheckedIn} hours ago)");
+            }
             $this->warn('DRY RUN: No changes made.');
-
             return Command::SUCCESS;
         }
 
-        if ($this->confirm('Do you want to auto check-out these members?')) {
-            $checkedOut = 0;
+        $checkedOut = 0;
 
-            foreach ($pendingCheckouts as $attendance) {
-                try {
-                    $attendance->update([
-                        'check_out_time' => Carbon::now(),
-                        'updated_by' => 1, // System user ID
-                    ]);
+        foreach ($pendingCheckouts as $attendance) {
+            try {
+                $attendance->update([
+                    'check_out_time' => Carbon::now(),
+                    'updated_by' => 1, // System user ID
+                ]);
 
-                    // Update member's last check-in time
-                    $attendance->member->update([
-                        'last_check_in' => $attendance->check_in_time,
-                        'total_visits' => $attendance->member->total_visits + 1,
-                    ]);
+                $attendance->member->update([
+                    'last_check_in' => $attendance->check_in_time,
+                    'total_visits' => $attendance->member->total_visits + 1,
+                ]);
 
-                    $checkedOut++;
-
-                    Log::info("Auto check-out: {$attendance->member->name} ({$attendance->member->member_code}) at {$attendance->check_out_time}");
-                } catch (\Exception $e) {
-                    $this->error("Failed to check-out {$attendance->member->name}: {$e->getMessage()}");
-                    Log::error("Auto check-out failed for {$attendance->member->name}: {$e->getMessage()}");
-                }
+                $checkedOut++;
+                Log::info("Auto check-out: {$attendance->member->name} ({$attendance->member->member_code}) at {$attendance->check_out_time}");
+            } catch (\Exception $e) {
+                Log::error("Auto check-out failed for {$attendance->member->name}: {$e->getMessage()}");
             }
-
-            $this->info("Successfully auto checked-out {$checkedOut} members.");
-        } else {
-            $this->info('Operation cancelled.');
         }
+
+        $this->info("Automatically checked-out {$checkedOut} members.");
 
         return Command::SUCCESS;
     }
