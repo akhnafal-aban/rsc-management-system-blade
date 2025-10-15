@@ -18,7 +18,8 @@ class MemberService
 
     public function getAllMembers(array $filters = []): LengthAwarePaginator
     {
-        $query = Member::with(['membership', 'attendances'])
+        $query = Member::select('id', 'member_code', 'name', 'email', 'phone', 'status', 'exp_date', 'last_check_in', 'total_visits', 'created_at')
+            ->with(['membership', 'attendances'])
             ->orderBy('created_at', 'desc');
 
         if (! empty($filters['search'])) {
@@ -32,7 +33,20 @@ class MemberService
         }
 
         if (! empty($filters['status'])) {
-            $query->where('status', $filters['status']);
+            if ($filters['status'] === 'INACTIVE') {
+                // INACTIVE includes both manually suspended AND expired members
+                $query->where(function ($q) {
+                    $q->where('status', 'INACTIVE')
+                        ->orWhere(function ($sq) {
+                            $sq->where('status', 'ACTIVE')
+                                ->whereDate('exp_date', '<', Carbon::today());
+                        });
+                });
+            } else {
+                // ACTIVE means active and not expired
+                $query->where('status', $filters['status'])
+                    ->whereDate('exp_date', '>=', Carbon::today());
+            }
         }
 
         return $query->paginate(10);

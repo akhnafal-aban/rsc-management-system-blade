@@ -49,7 +49,7 @@ class DashboardService
             ],
             [
                 'title' => 'Pendapatan Bulanan',
-                'value' => 'Rp ' . number_format($this->getMonthlyRevenue($startOfMonth, $endOfMonth), 0, ',', '.'),
+                'value' => 'Rp '.number_format($this->getMonthlyRevenue($startOfMonth, $endOfMonth), 0, ',', '.'),
                 'change' => $this->getRevenueGrowthPercentage($startOfMonth, $endOfMonth),
                 'icon' => 'dollar-sign',
             ],
@@ -185,7 +185,7 @@ class DashboardService
 
         $growth = (($currentCount - $lastMonthCount) / $lastMonthCount) * 100;
 
-        if (!is_finite($growth) || $growth == 0) {
+        if (! is_finite($growth) || $growth == 0) {
             return [
                 'type' => 'stable',
                 'value' => '0%',
@@ -194,7 +194,7 @@ class DashboardService
 
         return [
             'type' => $growth > 0 ? 'increase' : 'decrease',
-            'value' => number_format(abs($growth), 1) . '%',
+            'value' => number_format(abs($growth), 1).'%',
         ];
     }
 
@@ -223,7 +223,7 @@ class DashboardService
 
         return [
             'type' => $change > 0 ? 'increase' : 'decrease',
-            'value' => number_format(abs($change), 1) . '%',
+            'value' => number_format(abs($change), 1).'%',
         ];
     }
 
@@ -255,7 +255,7 @@ class DashboardService
 
         return [
             'type' => $trend >= 0 ? 'increase' : 'decrease',
-            'value' => number_format(abs($trend), 1) . '%',
+            'value' => number_format(abs($trend), 1).'%',
         ];
     }
 
@@ -270,10 +270,11 @@ class DashboardService
         $lastMonth = $startOfMonth->copy()->subMonth();
         $lastMonthEnd = $endOfMonth->copy()->subMonth();
 
-        $currentRevenue = $this->getMonthlyRevenue($startOfMonth, $endOfMonth);
-        $lastMonthRevenue = $this->getMonthlyRevenue($lastMonth, $lastMonthEnd);
+        $currentRevenue = (float) $this->getMonthlyRevenue($startOfMonth, $endOfMonth);
+        $lastMonthRevenue = (float) $this->getMonthlyRevenue($lastMonth, $lastMonthEnd);
 
-        if ($lastMonthRevenue === 0) {
+        // Gunakan <= 0 untuk menghindari pembagian nol atau negatif kecil akibat floating point
+        if ($lastMonthRevenue <= 0) {
             if ($currentRevenue > 0) {
                 return [
                     'type' => 'increase',
@@ -286,9 +287,13 @@ class DashboardService
             ];
         }
 
-        $growth = (($currentRevenue - $lastMonthRevenue) / $lastMonthRevenue) * 100;
+        // Pastikan tidak mungkin membagi nol
+        $growth = 0;
+        if ($lastMonthRevenue > 0) {
+            $growth = (($currentRevenue - $lastMonthRevenue) / $lastMonthRevenue) * 100;
+        }
 
-        if (!is_finite($growth) || $growth == 0) {
+        if (! is_finite($growth) || abs($growth) < 0.0001) {
             return [
                 'type' => 'stable',
                 'value' => '0%',
@@ -296,8 +301,8 @@ class DashboardService
         }
 
         return [
-            'type' => $growth >= 0 ? 'increase' : 'decrease',
-            'value' => number_format(abs($growth), 1) . '%',
+            'type' => $growth > 0 ? 'increase' : 'decrease',
+            'value' => number_format(abs($growth), 1).'%',
         ];
     }
 
@@ -307,7 +312,7 @@ class DashboardService
             ->orderBy('attendances_count', 'desc')
             ->first();
 
-        return $member ? $member->name . ' (' . $member->attendances_count . ' kali kunjungan)' : 'Belum ada data';
+        return $member ? $member->name.' ('.$member->attendances_count.' kali kunjungan)' : 'Belum ada data';
     }
 
     private function getPeakHours(): string
@@ -318,7 +323,7 @@ class DashboardService
             ->orderBy('count', 'desc')
             ->first();
 
-        return $peakHour ? $peakHour->hour . ':00 - ' . ($peakHour->hour + 1) . ':00' : 'Belum ada data';
+        return $peakHour ? $peakHour->hour.':00 - '.($peakHour->hour + 1).':00' : 'Belum ada data';
     }
 
     private function getInactiveMembersAlert(): string
@@ -327,7 +332,7 @@ class DashboardService
             ->where('last_check_in', '<', Carbon::now()->subDays(7))
             ->count();
 
-        return $inactiveCount > 0 ? $inactiveCount . ' member belum check-in selama 7 hari terakhir' : 'Semua member aktif';
+        return $inactiveCount > 0 ? $inactiveCount.' member belum check-in selama 7 hari terakhir' : 'Semua member aktif';
     }
 
     private function getRevenueTargetStatus(): string
@@ -340,6 +345,6 @@ class DashboardService
         $target = 30000000;
         $percentage = ($currentRevenue / $target) * 100;
 
-        return 'Rp ' . number_format($currentRevenue, 0, ',', '.') . ' / Rp ' . number_format($target, 0, ',', '.') . ' (' . number_format($percentage, 1) . '%)';
+        return 'Rp '.number_format($currentRevenue, 0, ',', '.').' / Rp '.number_format($target, 0, ',', '.').' ('.number_format($percentage, 1).'%)';
     }
 }

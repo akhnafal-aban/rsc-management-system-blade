@@ -53,6 +53,9 @@
                                 Status</th>
                             <th
                                 class="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                                Tanggal Expired</th>
+                            <th
+                                class="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                                 Check-in Terakhir</th>
                             <th
                                 class="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
@@ -64,6 +67,9 @@
                     </thead>
                     <tbody class="bg-card divide-y divide-border">
                         @forelse($members as $member)
+                            @php
+                                $isExpired = $member->exp_date < now()->toDateString();
+                            @endphp
                             <tr class="hover:bg-muted/50 transition-colors">
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <input type="checkbox" class="rounded border-border text-primary focus:ring-ring" />
@@ -81,10 +87,19 @@
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     @if($member->status->value === 'ACTIVE')
-                                        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-chart-2/20 text-chart-2">Aktif</span>
+                                        @if($isExpired)
+                                            <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">
+                                                Aktif (Expired)
+                                            </span>
+                                        @else
+                                            <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-chart-2/20 text-chart-2">Aktif</span>
+                                        @endif
                                     @else
                                         <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-destructive/20 text-destructive">Tidak Aktif</span>
                                     @endif
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm {{ $isExpired ? 'text-red-600 dark:text-red-400' : 'text-card-foreground' }}">
+                                    {{ \Carbon\Carbon::parse($member->exp_date)->format('d M Y') }}
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-card-foreground">
                                     {{ $member->last_check_in ? $member->last_check_in->format('d/m/Y') : '-' }}
@@ -140,7 +155,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" class="px-6 py-12 text-center text-muted-foreground">
+                                <td colspan="7" class="px-6 py-12 text-center text-muted-foreground">
                                     <x-ui.icon name="users" class="w-8 h-8 mx-auto mb-2 text-muted-foreground/50" />
                                     <p>Tidak ada member yang ditemukan.</p>
                                 </td>
