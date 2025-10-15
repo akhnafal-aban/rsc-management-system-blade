@@ -89,12 +89,27 @@ class AttendanceService
             });
         }
 
-        return $query
+        $members = $query
             ->orderByRaw("CASE WHEN status = 'ACTIVE' THEN 1 ELSE 2 END") // ACTIVE first, then INACTIVE
             ->orderBy('member_code')
             ->orderBy('name')
             ->paginate($perPage)
             ->withQueryString();
+
+        $memberIds = $members->pluck('id');
+        $todayAttendances = Attendance::whereIn('member_id', $memberIds)
+            ->whereDate('check_in_time', Carbon::today())
+            ->whereNull('check_out_time')
+            ->pluck('member_id')
+            ->toArray();
+
+        $members->getCollection()->transform(function ($member) use ($todayAttendances) {
+            $member->has_checked_in_today = in_array($member->id, $todayAttendances);
+
+            return $member;
+        });
+
+        return $members;
     }
 
     public function canCheckIn(Member $member): array
@@ -136,6 +151,26 @@ class AttendanceService
             'can_checkout' => false,
             'attendance' => null,
             'message' => 'Member dapat check-in',
+        ];
+    }
+
+    public function checkDuplicateCheckInToday(Member $member): array
+    {
+        $todayAttendance = Attendance::where('member_id', $member->id)
+            ->whereDate('check_in_time', Carbon::today())
+            ->whereNull('check_out_time')
+            ->first();
+
+        if ($todayAttendance) {
+            return [
+                'can_checkin' => false,
+                'message' => 'Member sudah melakukan check-in hari ini pada '.$todayAttendance->check_in_time->format('H:i:s'),
+            ];
+        }
+
+        return [
+            'can_checkin' => true,
+            'message' => 'Member dapat melakukan check-in',
         ];
     }
 
