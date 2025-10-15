@@ -270,10 +270,10 @@ class DashboardService
         $lastMonth = $startOfMonth->copy()->subMonth();
         $lastMonthEnd = $endOfMonth->copy()->subMonth();
 
-        $currentRevenue = $this->getMonthlyRevenue($startOfMonth, $endOfMonth);
-        $lastMonthRevenue = $this->getMonthlyRevenue($lastMonth, $lastMonthEnd);
+        $currentRevenue = (float) $this->getMonthlyRevenue($startOfMonth, $endOfMonth);
+        $lastMonthRevenue = (float) $this->getMonthlyRevenue($lastMonth, $lastMonthEnd);
 
-        if ($lastMonthRevenue === 0) {
+        if ($lastMonthRevenue <= 0) {
             if ($currentRevenue > 0) {
                 return [
                     'type' => 'increase',
@@ -286,9 +286,12 @@ class DashboardService
             ];
         }
 
-        $growth = (($currentRevenue - $lastMonthRevenue) / $lastMonthRevenue) * 100;
+        $growth = 0;
+        if ($lastMonthRevenue > 0) {
+            $growth = (($currentRevenue - $lastMonthRevenue) / $lastMonthRevenue) * 100;
+        }
 
-        if (!is_finite($growth) || $growth == 0) {
+        if (!is_finite($growth) || abs($growth) < 0.0001) {
             return [
                 'type' => 'stable',
                 'value' => '0%',
@@ -296,7 +299,7 @@ class DashboardService
         }
 
         return [
-            'type' => $growth >= 0 ? 'increase' : 'decrease',
+            'type' => $growth > 0 ? 'increase' : 'decrease',
             'value' => number_format(abs($growth), 1) . '%',
         ];
     }
