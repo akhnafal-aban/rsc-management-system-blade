@@ -25,10 +25,10 @@ class AttendanceController extends Controller
         $dateFilter = $request->get('date', now()->format('Y-m-d'));
 
         $attendances = $this->attendanceService->getAttendancesByDate($dateFilter, 10, $search, $statusFilter);
-        $stats = $this->attendanceService->getStatsByDate($dateFilter);
+        // $stats = $this->attendanceService->getStatsByDate($dateFilter);
         $searchResults = collect();
 
-        return view('pages.main.attendance.attendance', compact('attendances', 'stats', 'searchResults', 'search', 'statusFilter', 'dateFilter'));
+        return view('pages.main.attendance.attendance', compact('attendances', 'searchResults', 'search', 'statusFilter', 'dateFilter'));
     }
 
     public function checkInPage(Request $request): View
