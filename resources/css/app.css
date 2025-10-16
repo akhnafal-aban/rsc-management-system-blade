@@ -14,6 +14,7 @@
 
   /* Colors recognized by Tailwind v4 */
   --color-background: #12242e;
+  --color-background-muted: #0c1920;
   --color-foreground: #f3e3ea;
   --color-card: #1c2e38;
   --color-card-foreground: #f3e3ea;

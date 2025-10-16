@@ -1,6 +1,6 @@
 <!-- SIDEBAR -->
 <div id="sidebar"
-    class="fixed lg:static top-0 left-0 h-full bg-color-background text-sidebar-foreground transition-all duration-500 ease-in-out w-64 flex flex-col shadow-lg overflow-hidden z-40 lg:translate-x-0 -translate-x-full">
+    class="fixed lg:static top-0 left-0 h-full bg-background-muted text-sidebar-foreground transition-all duration-500 ease-in-out w-64 flex flex-col shadow-lg overflow-hidden z-40 lg:translate-x-0 -translate-x-full">
     <div class="sidebar-header p-4 border-b border-sidebar-border flex items-center justify-between">
         <span id="sidebar-title" class="font-semibold transition-all duration-500 ease-in-out">Navigation</span>
         <button onclick="toggleSidebar()"
@@ -16,8 +16,6 @@
         ['id' => 'dashboard', 'label' => 'Dashboard', 'icon' => 'home', 'route' => 'dashboard'],
         ['id' => 'attendance', 'label' => 'Absensi', 'icon' => 'user-check', 'route' => 'attendance.index'],
         ['id' => 'members', 'label' => 'Members', 'icon' => 'users', 'route' => 'member.index'],
-        // ['id' => 'reports', 'label' => 'Laporan', 'icon' => 'bar-chart-3', 'route' => 'report.index'],
-        // ['id' => 'settings', 'label' => 'Pengaturan', 'icon' => 'settings', 'route' => '#'],
     ]
 )
 
