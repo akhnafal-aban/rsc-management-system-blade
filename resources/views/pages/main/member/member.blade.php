@@ -10,6 +10,11 @@
                     <x-ui.icon name="download" class="w-4 h-4 mr-2" />
                     <span>Ekspor</span>
                 </a>
+                <a href="{{ route('member.extend') }}"
+                    class="inline-flex items-center justify-center px-5 py-2 border border-border bg-background text-foreground rounded-lg hover:bg-muted/50 transition-colors w-full sm:w-auto">
+                    <x-ui.icon name="calendar-plus" class="w-4 h-4 mr-2" />
+                    <span>Perpanjang Membership</span>
+                </a>
                 <a href="{{ route('member.create') }}"
                     class="inline-flex items-center justify-center px-5 py-2 rounded-lg bubblegum-button-primary text-chart-2-foreground transition-colors w-full sm:w-auto">
                     <x-ui.icon name="plus" class="w-4 h-4 mr-2" />

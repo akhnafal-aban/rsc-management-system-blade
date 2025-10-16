@@ -26,6 +26,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     // Members
+    Route::get('/member/search', [MemberController::class, 'searchMembers'])->name('member.search');
+    Route::get('/member/extend', [MemberController::class, 'extend'])->name('member.extend');
+    Route::post('/member/extend', [MemberController::class, 'storeExtend'])->name('member.extend.store');
     Route::resource('member', MemberController::class);
     Route::post('/member/{member}/suspend', [MemberController::class, 'suspend'])->name('member.suspend');
     Route::post('/member/{member}/activate', [MemberController::class, 'activate'])->name('member.activate');

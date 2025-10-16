@@ -3,6 +3,7 @@
 @php
   $iconMap = [
     'calendar'      => 'tabler-calendar',
+    'calendar-plus'      => 'tabler-calendar-plus',
     'clock'         => 'tabler-clock',
     'user-check'    => 'tabler-user-check',
     'users'         => 'tabler-users',

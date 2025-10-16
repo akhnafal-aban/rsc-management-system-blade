@@ -81,14 +81,6 @@
                         </select>
                     </div>
 
-                    <div>
-                        <label for="status" class="block text-sm font-medium text-card-foreground mb-2">Status</label>
-                        <select id="status" name="status"
-                            class="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent">
-                            <option value="ACTIVE" {{ old('status', 'ACTIVE') == 'ACTIVE' ? 'selected' : '' }}>Aktif</option>
-                            <option value="INACTIVE" {{ old('status') == 'INACTIVE' ? 'selected' : '' }}>Tidak Aktif</option>
-                        </select>
-                    </div>
                 </div>
 
                 <div class="mt-6">

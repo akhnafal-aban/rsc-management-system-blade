@@ -43,8 +43,9 @@ class MemberManagementTest extends TestCase
             'name' => 'John Doe',
             'email' => 'john@example.com',
             'phone' => '08123456789',
-            'exp_date' => now()->addYear()->format('Y-m-d'),
-            'status' => \App\Enums\MemberStatus::ACTIVE->value,
+            'membership_duration' => '12',
+            'payment_method' => 'CASH',
+            'payment_notes' => 'Test payment',
         ];
 
         $response = $this->post(route('member.store'), $memberData);
@@ -53,6 +54,7 @@ class MemberManagementTest extends TestCase
         $this->assertDatabaseHas('members', [
             'name' => 'John Doe',
             'email' => 'john@example.com',
+            'status' => \App\Enums\MemberStatus::ACTIVE->value,
         ]);
     }
 
@@ -86,8 +88,6 @@ class MemberManagementTest extends TestCase
             'name' => 'Jane Doe',
             'email' => 'jane@example.com',
             'phone' => '08123456789',
-            'exp_date' => now()->addYear()->format('Y-m-d'),
-            'status' => \App\Enums\MemberStatus::INACTIVE->value,
         ];
 
         $response = $this->put(route('member.update', $member), $updateData);
@@ -135,5 +135,53 @@ class MemberManagementTest extends TestCase
         $this->assertDatabaseMissing('members', [
             'id' => $member->id,
         ]);
+    }
+
+    public function test_can_view_extend_membership_page(): void
+    {
+        $response = $this->get(route('member.extend'));
+
+        $response->assertStatus(200);
+        $response->assertViewIs('pages.main.member.extend');
+    }
+
+    public function test_can_search_members(): void
+    {
+        $member = Member::factory()->create([
+            'name' => 'John Doe',
+            'status' => \App\Enums\MemberStatus::ACTIVE,
+        ]);
+
+        $response = $this->get(route('member.search', ['q' => 'John']));
+
+        $response->assertStatus(200);
+        $response->assertJsonCount(1);
+        $response->assertJsonFragment(['name' => 'John Doe']);
+    }
+
+    public function test_can_extend_membership(): void
+    {
+        $member = Member::factory()->create([
+            'exp_date' => now()->addMonth()->format('Y-m-d'),
+            'status' => \App\Enums\MemberStatus::ACTIVE,
+        ]);
+
+        $extendData = [
+            'member_id' => $member->id,
+            'membership_duration' => '3',
+            'payment_method' => 'CASH',
+            'payment_notes' => 'Test extension',
+        ];
+
+        $response = $this->post(route('member.extend.store'), $extendData);
+
+        $response->assertRedirect();
+        $expectedDate = now()->addMonth()->addMonths(3)->format('Y-m-d');
+        $this->assertDatabaseHas('members', [
+            'id' => $member->id,
+        ]);
+
+        $updatedMember = Member::find($member->id);
+        $this->assertEquals($expectedDate, $updatedMember->exp_date->format('Y-m-d'));
     }
 }
