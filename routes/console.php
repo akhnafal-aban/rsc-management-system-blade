@@ -3,6 +3,7 @@
 use App\Http\Controllers\NotificationController;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schedule;
 
@@ -19,12 +20,28 @@ Schedule::command('memberships:expire')
         // Log success if needed
         Log::info('Membership expiration check completed successfully');
 
-        // Add notification
-        NotificationController::addCommandNotification(
-            'Membership Expiration Check',
-            'success',
-            'Sistem memeriksa dan memperbarui status keanggotaan yang sudah expired'
-        );
+        // Get expired members from cache
+        $expiredMembers = Cache::get('last_expired_members', []);
+
+        if (! empty($expiredMembers)) {
+            // Create notification for each expired member
+            foreach ($expiredMembers as $memberName) {
+                NotificationController::addCommandNotification(
+                    'Membership Expiration Check',
+                    'success',
+                    null,
+                    $memberName,
+                    null // No checkout time for membership expiration
+                );
+            }
+        } else {
+            // No members expired, send generic notification
+            NotificationController::addCommandNotification(
+                'Membership Expiration Check',
+                'success',
+                'Tidak ada keanggotaan yang expired hari ini'
+            );
+        }
     })
     ->onFailure(function () {
         // Log failure if needed
@@ -37,6 +54,3 @@ Schedule::command('memberships:expire')
             'Membership expiration check failed'
         );
     });
-
-// Auto checkout is now handled by delayed jobs dispatched during check-in
-// This provides more precise timing and better performance compared to cron-based scanning
