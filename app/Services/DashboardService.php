@@ -99,7 +99,7 @@ class DashboardService
         for ($i = 0; $i < 7; $i++) {
             $date = $startOfWeek->copy()->addDays($i);
             $count = Attendance::whereDate('check_in_time', $date)->count();
-            $data[] = $count;
+            $data[] = (int) $count; // Ensure integer
             $labels[] = $date->format('D');
         }
 
@@ -111,9 +111,9 @@ class DashboardService
 
     private function getMemberDistributionData(): array
     {
-        $activeMembers = Member::active()->count();
-        $inactiveMembers = Member::inactive()->count();
-        $expiredMembers = Member::expired()->count();
+        $activeMembers = (int) Member::active()->count();
+        $inactiveMembers = (int) Member::inactive()->count();
+        $expiredMembers = (int) Member::expired()->count();
 
         return [
             'labels' => ['Aktif', 'Tidak Aktif', 'Kedaluwarsa'],
@@ -126,7 +126,7 @@ class DashboardService
     {
         $today = Carbon::today();
         $target = 100; // Target harian
-        $current = Attendance::whereDate('check_in_time', $today)->count();
+        $current = (int) Attendance::whereDate('check_in_time', $today)->count();
         $percentage = $target > 0 ? round(($current / $target) * 100, 1) : 0;
 
         return [
@@ -330,13 +330,11 @@ class DashboardService
 
     private function getPeakHours(): string
     {
-        // Use database-agnostic approach for SQLite compatibility
         $peakHour = Attendance::selectRaw('HOUR(check_in_time) as hour, COUNT(*) as count')
             ->whereDate('check_in_time', '>=', Carbon::now()->subDays(30))
             ->groupBy('hour')
             ->orderBy('count', 'desc')
             ->first();
-
 
         return $peakHour ? $peakHour->hour . ':00 - ' . (intval($peakHour->hour) + 1) . ':00' : 'Belum ada data';
     }
