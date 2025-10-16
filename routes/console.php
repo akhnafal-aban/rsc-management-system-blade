@@ -38,29 +38,5 @@ Schedule::command('memberships:expire')
         );
     });
 
-// Schedule auto check-out for members checked in for more than 5 hours
-// Run every hour to check for members who need auto check-out
-Schedule::command('attendance:auto-checkout --hours=3')
-    ->everyMinute()
-    ->withoutOverlapping()
-    ->runInBackground()
-    ->onSuccess(function () {
-        Log::info('Auto check-out process completed successfully');
-
-        // Add notification with more detailed information
-        NotificationController::addCommandNotification(
-            'Auto Check-out Process',
-            'success',
-            'Sistem otomatis melakukan check-out untuk member yang sudah lebih dari 3 jam di gym'
-        );
-    })
-    ->onFailure(function () {
-        Log::error('Auto check-out process failed');
-
-        // Add notification
-        NotificationController::addCommandNotification(
-            'Auto Check-out Process',
-            'failed',
-            'Auto check-out process failed'
-        );
-    });
+// Auto checkout is now handled by delayed jobs dispatched during check-in
+// This provides more precise timing and better performance compared to cron-based scanning

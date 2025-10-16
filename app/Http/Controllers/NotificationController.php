@@ -49,7 +49,7 @@ class NotificationController extends Controller
         return false;
     }
 
-    public static function addCommandNotification(string $commandName, string $status, ?string $message = null): void
+    public static function addCommandNotification(string $commandName, string $status, ?string $message = null, ?string $memberName = null, ?string $checkoutTime = null): void
     {
         $notifications = Cache::get('scheduled_command_notifications', []);
 
@@ -57,6 +57,8 @@ class NotificationController extends Controller
             'command' => $commandName,
             'status' => $status, // 'success' or 'failed'
             'message' => $message,
+            'member_name' => $memberName,
+            'checkout_time' => $checkoutTime,
             'timestamp' => now()->timestamp,
             'time' => now()->format('H:i:s'),
             'date' => now()->format('d M Y'),

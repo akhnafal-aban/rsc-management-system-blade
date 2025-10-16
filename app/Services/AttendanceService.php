@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Enums\MemberStatus;
+use App\Jobs\AutoCheckOutJob;
 use App\Models\Attendance;
 use App\Models\Member;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Log;
 
 class AttendanceService
 {
@@ -174,19 +176,24 @@ class AttendanceService
         ];
     }
 
-    public function checkInMember(Member $member, int $userId): Attendance
+    public function checkInMember(Member $member, int $userId, int $autoCheckoutHours = 3): Attendance
     {
+        $checkInTime = Carbon::now();
+
         $attendance = Attendance::create([
             'member_id' => $member->id,
-            'check_in_time' => Carbon::now(),
+            'check_in_time' => $checkInTime,
             'created_by' => $userId,
         ]);
 
         // Update member's last check-in and total visits
         $member->update([
-            'last_check_in' => Carbon::now(),
+            'last_check_in' => $checkInTime,
             'total_visits' => $member->total_visits + 1,
         ]);
+
+        // Dispatch delayed auto-checkout job
+        $this->scheduleAutoCheckOut($attendance, $autoCheckoutHours);
 
         return $attendance->load(['member', 'creator']);
     }
@@ -197,6 +204,9 @@ class AttendanceService
             'check_out_time' => Carbon::now(),
             'updated_by' => $userId,
         ]);
+
+        // Cancel any pending auto-checkout job for this attendance
+        $this->cancelAutoCheckOutJob($attendance);
 
         return $attendance->fresh(['member', 'creator']);
     }
@@ -233,5 +243,40 @@ class AttendanceService
         }
 
         return $data;
+    }
+
+    /**
+     * Schedule auto checkout job for the given attendance.
+     */
+    private function scheduleAutoCheckOut(Attendance $attendance, int $hours): void
+    {
+        try {
+            // Calculate delay in seconds
+            $delaySeconds = $hours * 3600; // Convert hours to seconds
+
+            // Dispatch the job with delay
+            AutoCheckOutJob::dispatch($attendance->id)
+                ->delay(now()->addSeconds($delaySeconds));
+
+            Log::info("Scheduled auto checkout for attendance {$attendance->id} in {$hours} hours");
+        } catch (\Exception $e) {
+            Log::error("Failed to schedule auto checkout for attendance {$attendance->id}: {$e->getMessage()}");
+        }
+    }
+
+    /**
+     * Cancel pending auto checkout job for the given attendance.
+     * Note: This is a simplified implementation. In a production environment,
+     * you might want to store job IDs and cancel them explicitly.
+     */
+    private function cancelAutoCheckOutJob(Attendance $attendance): void
+    {
+        try {
+            // For now, we rely on the job's own validation to skip if already checked out
+            // In a more advanced implementation, you could store job IDs and cancel them
+            Log::info("Manual checkout detected for attendance {$attendance->id}, auto checkout will be skipped");
+        } catch (\Exception $e) {
+            Log::error("Error during auto checkout cancellation for attendance {$attendance->id}: {$e->getMessage()}");
+        }
     }
 }
