@@ -47,9 +47,6 @@
                 <table class="min-w-full divide-y divide-border">
                     <thead class="bg-muted/50">
                         <tr>
-                            <th class="px-6 py-3 text-left">
-                                <input type="checkbox" class="rounded border-border text-primary focus:ring-ring" />
-                            </th>
                             <th
                                 class="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                                 Member</th>
@@ -76,9 +73,6 @@
                                 $isExpired = $member->exp_date < now()->toDateString();
                             @endphp
                             <tr class="hover:bg-muted/50 transition-colors">
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <input type="checkbox" class="rounded border-border text-primary focus:ring-ring" />
-                                </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <div class="flex items-center">
                                         <div class="w-10 h-10 bg-chart-1/20 rounded-full flex items-center justify-center">
