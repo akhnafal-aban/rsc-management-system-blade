@@ -1,130 +1,146 @@
+<style>
+    /* Custom styles for JavaScript functionality and complex animations */
+    .sidebar.open {
+        width: 250px;
+    }
+
+    .sidebar.open .logo_name {
+        opacity: 1;
+    }
+
+    .sidebar.open .links_name {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    .sidebar.open .profile-name,
+    .sidebar.open .profile-role {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    .sidebar.open .tooltip {
+        display: none;
+    }
+
+    .sidebar li:hover .tooltip {
+        opacity: 1;
+        pointer-events: auto;
+        transition: all 0.4s ease;
+        top: 50%;
+        transform: translateY(-50%);
+    }
+
+    .main-content {
+        margin-left: 78px;
+        transition: all 0.5s ease;
+        min-height: 100vh;
+    }
+
+    .sidebar.open + .main-content {
+        margin-left: 250px;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 640px) {
+        .main-content {
+            margin-left: 0 !important;
+        }
+        
+        .sidebar.open + .main-content {
+            margin-left: 0 !important;
+        }
+    }
+
+</style>
+
 <!-- SIDEBAR -->
 <div id="sidebar"
-    class="fixed lg:static top-0 left-0 h-full bg-background-muted text-sidebar-foreground transition-all duration-500 ease-in-out w-64 flex flex-col shadow-lg overflow-hidden z-40 lg:translate-x-0 -translate-x-full">
-    <div class="sidebar-header p-4 border-b border-sidebar-border flex items-center justify-between">
-        <span id="sidebar-title" class="font-semibold transition-all duration-500 ease-in-out">Navigation</span>
-        <button onclick="toggleSidebar()"
-            class="p-2 rounded-lg hover:bg-sidebar-accent/20 transition-colors duration-200 flex items-center justify-center">
-            <x-ui.icon name="chevron-left" class="w-5 h-5 transition-transform duration-500 ease-in-out"
-                id="sidebar-toggle-icon" />
+    class="hidden sm:block fixed left-0 top-0 h-full w-[78px] lg:w-[78px] bg-background-muted px-[14px] py-[6px] z-[1000] transition-all duration-500 ease-in-out border-r border-border sidebar">
+    <div class="h-[60px] flex items-center relative border-b border-border pl-4 pr-2">
+        <div class="text-foreground text-xl font-semibold opacity-0 transition-all duration-500 ease-in-out whitespace-nowrap logo_name">
+            Navigation
+        </div>
+    
+        <button id="btn"
+            class="absolute top-1/2 right-1 -translate-y-1/2 p-2 rounded-lg text-foreground hover:bg-accent hover:text-accent-foreground transition-all duration-500 ease-in-out">
+            <x-ui.icon name="menu" class="w-6 h-6" />
         </button>
     </div>
+    
 
-    <nav class="flex-1 p-4 space-y-2">
-        @php(
-    $menuItems = [
-        ['id' => 'dashboard', 'label' => 'Dashboard', 'icon' => 'home', 'route' => 'dashboard'],
-        ['id' => 'attendance', 'label' => 'Absensi', 'icon' => 'user-check', 'route' => 'attendance.index'],
-        ['id' => 'members', 'label' => 'Members', 'icon' => 'users', 'route' => 'member.index'],
-    ]
-)
+    <ul class="h-[calc(100%-190px)] overflow-y-auto overflow-x-hidden nav-list">
+        @php($menuItems = [['id' => 'dashboard', 'label' => 'Dashboard', 'icon' => 'home', 'route' => 'dashboard'], ['id' => 'attendance', 'label' => 'Absensi', 'icon' => 'user-check', 'route' => 'attendance.index'], ['id' => 'members', 'label' => 'Members', 'icon' => 'users', 'route' => 'member.index']])
 
         @foreach ($menuItems as $item)
             @php($isActive = request()->routeIs($item['route']) || (request()->routeIs('dashboard') && $item['id'] === 'dashboard'))
-            <a href="{{ $item['route'] === '#' ? '#' : route($item['route']) }}"
-                class="menu-item grid grid-cols-[2.5rem_1fr] items-center gap-3 p-3 rounded-lg transition-all duration-500 ease-in-out {{ $isActive ? 'bg-sidebar-primary text-sidebar-primary-foreground' : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/20 hover:text-sidebar-foreground' }}">
-                <x-ui.icon name="{{ $item['icon'] }}"
-                    class="w-5 h-5 flex-shrink-0 justify-self-center transition-transform duration-500 ease-in-out" />
-                <span class="sidebar-label truncate transition-all duration-500 ease-in-out">{{ $item['label'] }}</span>
-            </a>
+            <li class="relative my-2 list-none">
+                <a href="{{ $item['route'] === '#' ? '#' : route($item['route']) }}"
+                    class="flex h-[50px] w-full rounded-xl items-center no-underline transition-all duration-[400ms] ease-in-out bg-transparent text-foreground px-3 hover:bg-destructive hover:text-destructive-foreground {{ $isActive ? 'bg-destructive text-destructive-foreground' : '' }}">
+                    <x-ui.icon name="{{ $item['icon'] }}"
+                        class="w-6 h-6 leading-[50px] text-lg min-w-[50px] max-w-[50px] text-center rounded-xl transition-all duration-[400ms] ease-in-out flex items-center justify-center shrink-0 -ml-3 sidebar-icon" />
+                    <span
+                        class="text-foreground text-[15px] font-normal whitespace-nowrap opacity-0 pointer-events-none transition-[400ms] ml-3 links_name">{{ $item['label'] }}</span>
+                </a>
+                <span
+                    class="absolute -top-5 left-[calc(100%+15px)] bg-card text-card-foreground shadow-[0_5px_10px_rgba(0,0,0,0.3)] px-3 py-[6px] rounded text-[15px] font-normal opacity-0 whitespace-nowrap pointer-events-none transition-none border border-border tooltip">{{ $item['label'] }}</span>
+            </li>
         @endforeach
-    </nav>
+
+    </ul>
+
+    <!-- User Profile Section -->
+    @if (isset($user))
+        <div class="flex flex-col gap-2">
+            <!-- Logout Button -->
+            <button onclick="handleLogout()"
+                class="flex h-[50px] w-full rounded-xl items-center no-underline transition-all duration-[400ms] ease-in-out bg-transparent text-foreground px-3 border-none cursor-pointer hover:bg-destructive hover:text-destructive-foreground profile-logout-btn"
+                title="Keluar">
+                <x-ui.icon name="log-out"
+                    class="w-6 h-6  leading-[50px] text-lg min-w-[50px] max-w-[50px] text-center rounded-xl transition-all duration-[400ms] ease-in-out flex items-center justify-center shrink-0 -ml-2 sidebar-icon" />
+                <span
+                    class="text-foreground text-[15px] font-normal whitespace-nowrap opacity-0 pointer-events-none transition-[400ms] ml-3 links_name">Keluar</span>
+            </button>
+
+            <!-- Profile Details -->
+            <li
+                class="relative my-2 list-none hover:text-destructive-foreground transition-all duration-[400ms] ease-in-out">
+                <div
+                    class="flex h-[50px] w-full rounded-xl items-center no-underline transition-all duration-[400ms] ease-in-out bg-transparent text-foreground px-3 cursor-pointer hover:bg-primary hover:text-destructive-foreground profile-details-btn">
+                    <x-ui.icon name="user"
+                        class="w-6 h-6 leading-[50px] text-lg min-w-[50px] max-w-[50px] text-center rounded-xl transition-all duration-[400ms] ease-in-out flex items-center justify-center shrink-0 -ml-3 sidebar-icon" />
+                    <div class="flex flex-col ml-3 min-w-0 flex-1 profile-info">
+                        <span
+                            class="text-foreground text-[15px] font-medium whitespace-nowrap opacity-0 pointer-events-none transition-[400ms] overflow-hidden text-ellipsis links_name profile-name">{{ $user['name'] ?? '' }}</span>
+                        @if (isset($user['role']) && $user['role']->isAdmin())
+                            <span
+                                class="text-muted-foreground text-xs font-normal whitespace-nowrap opacity-0 pointer-events-none transition-[400ms] overflow-hidden text-ellipsis links_name profile-role">Admin</span>
+                        @elseif (isset($user['role']) && $user['role']->isStaff())
+                            <span
+                                class="text-muted-foreground text-xs font-normal whitespace-nowrap opacity-0 pointer-events-none transition-[400ms] overflow-hidden text-ellipsis links_name profile-role">Staff</span>
+                        @endif
+                    </div>
+                </div>
+            </li>
+        </div>
+    @endif
 </div>
 
-<!-- BACKDROP (for mobile overlay) -->
-<div id="sidebar-backdrop"
-    class="fixed inset-0 bg-black/40 backdrop-blur-sm z-30 hidden opacity-0 transition-opacity duration-300 ease-in-out lg:hidden"
-    onclick="toggleSidebar()"></div>
-
-<!-- NAVBAR (shows toggle button on mobile) -->
-<header
-    class="lg:hidden fixed top-0 left-0 right-0 h-14 bg-card border-b border-border flex items-center justify-between px-4 z-50">
-    <button onclick="toggleSidebar()" class="p-2 rounded-md hover:bg-muted/50 transition">
-        <x-ui.icon name="menu" class="w-6 h-6" />
-    </button>
-    <h1 class="text-lg font-semibold">Really Sports Center</h1>
-</header>
-
-<style>
-    /* === COLLAPSED STATE (Desktop only) === */
-    #sidebar.collapsed {
-        width: 5rem;
-    }
-
-    #sidebar.collapsed #sidebar-title {
-        opacity: 0;
-        max-width: 0;
-        overflow: hidden;
-        white-space: nowrap;
-    }
-
-    #sidebar.collapsed .sidebar-label {
-        max-width: 0;
-        opacity: 0;
-        overflow: hidden;
-        white-space: nowrap;
-    }
-
-    #sidebar.collapsed .menu-item {
-        grid-template-columns: 1fr;
-        gap: 0;
-        justify-items: center;
-    }
-
-    #sidebar.collapsed .menu-item .w-5 {
-        transform: translateX(0) scale(1.05);
-    }
-
-    #sidebar.collapsed .sidebar-header {
-        justify-content: center;
-        padding: 1rem 0.5rem;
-    }
-
-    /* === MOBILE SIDEBAR === */
-    #sidebar.open {
-        transform: translateX(0);
-    }
-
-    #sidebar-backdrop.show {
-        display: block;
-        opacity: 1;
-    }
-</style>
-
 <script>
-    let sidebarCollapsed = false;
-    let sidebarOpen = false;
+    function handleLogout() {
+        if (confirm('Apakah Anda yakin ingin keluar?')) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '{{ route('logout') }}';
 
-    function toggleSidebar() {
-        const sidebar = document.getElementById('sidebar');
-        const icon = document.getElementById('sidebar-toggle-icon');
-        const backdrop = document.getElementById('sidebar-backdrop');
+            const token = document.createElement('input');
+            token.type = 'hidden';
+            token.name = '_token';
+            token.value = '{{ csrf_token() }}';
 
-        // Mobile toggle behavior
-        if (window.innerWidth < 1024) {
-            sidebarOpen = !sidebarOpen;
-            if (sidebarOpen) {
-                sidebar.classList.add('open');
-                sidebar.classList.remove('-translate-x-full');
-                backdrop.classList.add('show');
-            } else {
-                sidebar.classList.remove('open');
-                sidebar.classList.add('-translate-x-full');
-                backdrop.classList.remove('show');
-            }
-            return;
-        }
-
-        // Desktop collapse behavior
-        sidebarCollapsed = !sidebarCollapsed;
-        if (sidebarCollapsed) {
-            sidebar.classList.add('collapsed');
-            icon.classList.remove('chevron-left');
-            icon.classList.add('chevron-right');
-        } else {
-            sidebar.classList.remove('collapsed');
-            icon.classList.remove('chevron-right');
-            icon.classList.add('chevron-left');
+            form.appendChild(token);
+            document.body.appendChild(form);
+            form.submit();
         }
     }
 </script>

@@ -2,17 +2,19 @@
 @section('title', 'Dashboard')
 @section('content')
     <div class="space-y-6">
-        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
-            <h1 class="text-2xl font-bold text-foreground mb-3 sm:mb-0">Dashboard</h1>
+        <div class="flex flex-row items-center justify-between mb-4 flex-wrap gap-3">
+            <h1 class="text-2xl font-bold text-foreground">Dashboard</h1>
         
             <div class="flex flex-wrap justify-end gap-3">
                 <a href="{{ route('dashboard') }}"
-                    class="inline-flex items-center px-6 py-2 border border-border bg-background text-foreground rounded-lg hover:bg-muted/50 transition-colors">
-                    <x-ui.icon name="refresh" class="w-4 h-4 mr-2" />
-                    <span>Perbarui</span>
+                    class="inline-flex items-center justify-center px-3 sm:px-6 py-2 border border-border bg-background text-foreground rounded-lg hover:bg-muted/50 transition-colors">
+                    <x-ui.icon name="refresh" class="w-4 h-4 mr-0 sm:mr-2" />
+                    <span class="hidden sm:inline">Perbarui</span>
                 </a>
             </div>
         </div>
+        
+        
 
         <!-- Aksi Cepat -->
         <div class="bg-card rounded-lg shadow-sm border border-border p-6">
