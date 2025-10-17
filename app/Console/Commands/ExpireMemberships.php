@@ -8,6 +8,8 @@ use App\Enums\MemberStatus;
 use App\Models\Member;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 class ExpireMemberships extends Command
 {
@@ -41,12 +43,35 @@ class ExpireMemberships extends Command
             return Command::SUCCESS;
         }
 
-        $updated = Member::where('status', MemberStatus::ACTIVE)
-            ->where('exp_date', '<', Carbon::today()->toDateString())
-            ->update(['status' => MemberStatus::INACTIVE]);
+        // Check if running in non-interactive mode (scheduled execution)
+        $autoProceed = ! $this->input->isInteractive();
+        $shouldProceed = $autoProceed || $this->confirm('Do you want to expire these memberships?');
 
-        $this->info("Automatically expired {$updated} memberships.");
+        if ($shouldProceed) {
+            $expiredMemberNames = [];
 
+            foreach ($expiredMembers as $member) {
+                try {
+                    $member->update(['status' => MemberStatus::INACTIVE]);
+                    $expiredMemberNames[] = $member->name;
+
+                    Log::info("Expired membership for member: {$member->name} ({$member->member_code})");
+                } catch (\Exception $e) {
+                    $this->error("Failed to expire membership for {$member->name}: {$e->getMessage()}");
+                    Log::error("Failed to expire membership for {$member->name}: {$e->getMessage()}");
+                }
+            }
+
+            // Store expired member info for notification
+            if (! empty($expiredMemberNames)) {
+                Cache::put('last_expired_members', $expiredMemberNames, now()->addHours(1));
+            }
+
+            $this->info('Successfully expired '.count($expiredMemberNames).' memberships.');
+            Log::info('Membership expiration completed. Expired '.count($expiredMemberNames).' memberships.');
+        } else {
+            $this->info('Operation cancelled.');
+        }
 
         return Command::SUCCESS;
     }

@@ -8,6 +8,7 @@ use App\Models\Attendance;
 use App\Models\Member;
 use App\Models\Payment;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Cache;
 
 class DashboardService
 {
@@ -23,37 +24,41 @@ class DashboardService
 
     private function getStats(): array
     {
-        $today = Carbon::today();
-        $startOfWeek = $today->copy()->startOfWeek();
-        $startOfMonth = $today->copy()->startOfMonth();
-        $endOfMonth = $today->copy()->endOfMonth();
+        $cacheKey = 'dashboard_stats_' . now()->format('Y-m-d-H');
 
-        return [
-            [
-                'title' => 'Member Aktif',
-                'value' => Member::active()->count(),
-                'change' => $this->getMemberGrowthPercentage(),
-                'icon' => 'users',
-            ],
-            [
-                'title' => 'Check-in Hari Ini',
-                'value' => Attendance::whereDate('check_in_time', $today)->count(),
-                'change' => $this->getTodayAttendanceChange(),
-                'icon' => 'user-check',
-            ],
-            [
-                'title' => 'Rata-rata Mingguan',
-                'value' => $this->getWeeklyAverage(),
-                'change' => $this->getWeeklyTrend(),
-                'icon' => 'trending-up',
-            ],
-            [
-                'title' => 'Pendapatan Bulanan',
-                'value' => 'Rp ' . number_format($this->getMonthlyRevenue($startOfMonth, $endOfMonth), 0, ',', '.'),
-                'change' => $this->getRevenueGrowthPercentage($startOfMonth, $endOfMonth),
-                'icon' => 'dollar-sign',
-            ],
-        ];
+        return Cache::remember($cacheKey, CacheService::CACHE_TTL_SHORT, function () {
+            $today = Carbon::today();
+            $startOfWeek = $today->copy()->startOfWeek();
+            $startOfMonth = $today->copy()->startOfMonth();
+            $endOfMonth = $today->copy()->endOfMonth();
+
+            return [
+                [
+                    'title' => 'Member Aktif',
+                    'value' => Member::active()->count(),
+                    'change' => $this->getMemberGrowthPercentage(),
+                    'icon' => 'users',
+                ],
+                [
+                    'title' => 'Check-in Hari Ini',
+                    'value' => Attendance::whereDate('check_in_time', $today)->count(),
+                    'change' => $this->getTodayAttendanceChange(),
+                    'icon' => 'user-check',
+                ],
+                [
+                    'title' => 'Rata-rata Mingguan',
+                    'value' => $this->getWeeklyAverage(),
+                    'change' => $this->getWeeklyTrend(),
+                    'icon' => 'trending-up',
+                ],
+                [
+                    'title' => 'Pendapatan Bulanan',
+                    'value' => 'Rp ' . number_format($this->getMonthlyRevenue($startOfMonth, $endOfMonth), 0, ',', '.'),
+                    'change' => $this->getRevenueGrowthPercentage($startOfMonth, $endOfMonth),
+                    'icon' => 'dollar-sign',
+                ],
+            ];
+        });
     }
 
     private function getRecentActivities(): array
@@ -74,11 +79,15 @@ class DashboardService
 
     private function getChartData(): array
     {
-        return [
-            'weekly_trend' => $this->getWeeklyTrendData(),
-            'member_distribution' => $this->getMemberDistributionData(),
-            'daily_activity' => $this->getDailyActivityData(),
-        ];
+        $cacheKey = 'dashboard_charts_' . now()->format('Y-m-d-H');
+
+        return Cache::remember($cacheKey, CacheService::CACHE_TTL_MEDIUM, function () {
+            return [
+                'weekly_trend' => $this->getWeeklyTrendData(),
+                'member_distribution' => $this->getMemberDistributionData(),
+                'daily_activity' => $this->getDailyActivityData(),
+            ];
+        });
     }
 
     private function getWeeklyTrendData(): array
@@ -90,7 +99,7 @@ class DashboardService
         for ($i = 0; $i < 7; $i++) {
             $date = $startOfWeek->copy()->addDays($i);
             $count = Attendance::whereDate('check_in_time', $date)->count();
-            $data[] = $count;
+            $data[] = (int) $count; // Ensure integer
             $labels[] = $date->format('D');
         }
 
@@ -102,9 +111,9 @@ class DashboardService
 
     private function getMemberDistributionData(): array
     {
-        $activeMembers = Member::active()->count();
-        $inactiveMembers = Member::inactive()->count();
-        $expiredMembers = Member::expired()->count();
+        $activeMembers = (int) Member::active()->count();
+        $inactiveMembers = (int) Member::inactive()->count();
+        $expiredMembers = (int) Member::expired()->count();
 
         return [
             'labels' => ['Aktif', 'Tidak Aktif', 'Kedaluwarsa'],
@@ -117,7 +126,7 @@ class DashboardService
     {
         $today = Carbon::today();
         $target = 100; // Target harian
-        $current = Attendance::whereDate('check_in_time', $today)->count();
+        $current = (int) Attendance::whereDate('check_in_time', $today)->count();
         $percentage = $target > 0 ? round(($current / $target) * 100, 1) : 0;
 
         return [
@@ -129,32 +138,36 @@ class DashboardService
 
     private function getManagerInsights(): array
     {
-        return [
-            [
-                'title' => 'Member dengan Aktivitas Tertinggi',
-                'content' => $this->getTopActiveMember(),
-                'type' => 'success',
-                'icon' => 'icon-trophy',
-            ],
-            [
-                'title' => 'Jam Puncak Kunjungan',
-                'content' => $this->getPeakHours(),
-                'type' => 'info',
-                'icon' => 'icon-clock',
-            ],
-            [
-                'title' => 'Member yang Perlu Diperhatikan',
-                'content' => $this->getInactiveMembersAlert(),
-                'type' => 'warning',
-                'icon' => 'icon-alert-triangle',
-            ],
-            [
-                'title' => 'Pendapatan vs Target',
-                'content' => $this->getRevenueTargetStatus(),
-                'type' => 'success',
-                'icon' => 'icon-trending-up',
-            ],
-        ];
+        $cacheKey = 'dashboard_insights_' . now()->format('Y-m-d-H');
+
+        return Cache::remember($cacheKey, CacheService::CACHE_TTL_MEDIUM, function () {
+            return [
+                [
+                    'title' => 'Member dengan Aktivitas Tertinggi',
+                    'content' => $this->getTopActiveMember(),
+                    'type' => 'success',
+                    'icon' => 'icon-trophy',
+                ],
+                [
+                    'title' => 'Jam Puncak Kunjungan',
+                    'content' => $this->getPeakHours(),
+                    'type' => 'info',
+                    'icon' => 'icon-clock',
+                ],
+                [
+                    'title' => 'Member yang Perlu Diperhatikan',
+                    'content' => $this->getInactiveMembersAlert(),
+                    'type' => 'warning',
+                    'icon' => 'icon-alert-triangle',
+                ],
+                [
+                    'title' => 'Pendapatan vs Target',
+                    'content' => $this->getRevenueTargetStatus(),
+                    'type' => 'success',
+                    'icon' => 'icon-trending-up',
+                ],
+            ];
+        });
     }
 
     private function getMemberGrowthPercentage(): ?array
@@ -185,7 +198,7 @@ class DashboardService
 
         $growth = (($currentCount - $lastMonthCount) / $lastMonthCount) * 100;
 
-        if (!is_finite($growth) || $growth == 0) {
+        if (! is_finite($growth) || $growth == 0) {
             return [
                 'type' => 'stable',
                 'value' => '0%',
@@ -273,6 +286,7 @@ class DashboardService
         $currentRevenue = (float) $this->getMonthlyRevenue($startOfMonth, $endOfMonth);
         $lastMonthRevenue = (float) $this->getMonthlyRevenue($lastMonth, $lastMonthEnd);
 
+        // Gunakan <= 0 untuk menghindari pembagian nol atau negatif kecil akibat floating point
         if ($lastMonthRevenue <= 0) {
             if ($currentRevenue > 0) {
                 return [
@@ -286,12 +300,13 @@ class DashboardService
             ];
         }
 
+        // Pastikan tidak mungkin membagi nol
         $growth = 0;
         if ($lastMonthRevenue > 0) {
             $growth = (($currentRevenue - $lastMonthRevenue) / $lastMonthRevenue) * 100;
         }
 
-        if (!is_finite($growth) || abs($growth) < 0.0001) {
+        if (! is_finite($growth) || abs($growth) < 0.0001) {
             return [
                 'type' => 'stable',
                 'value' => '0%',
@@ -321,7 +336,7 @@ class DashboardService
             ->orderBy('count', 'desc')
             ->first();
 
-        return $peakHour ? $peakHour->hour . ':00 - ' . ($peakHour->hour + 1) . ':00' : 'Belum ada data';
+        return $peakHour ? $peakHour->hour . ':00 - ' . (intval($peakHour->hour) + 1) . ':00' : 'Belum ada data';
     }
 
     private function getInactiveMembersAlert(): string
@@ -344,5 +359,37 @@ class DashboardService
         $percentage = ($currentRevenue / $target) * 100;
 
         return 'Rp ' . number_format($currentRevenue, 0, ',', '.') . ' / Rp ' . number_format($target, 0, ',', '.') . ' (' . number_format($percentage, 1) . '%)';
+    }
+
+    /**
+     * Invalidate dashboard cache when data changes
+     */
+    public function invalidateDashboardCache(): void
+    {
+        $today = now()->format('Y-m-d-H');
+
+        $cacheKeys = [
+            'dashboard_data_' . $today,
+            'dashboard_stats_' . $today,
+            'dashboard_charts_' . $today,
+            'dashboard_insights_' . $today,
+        ];
+
+        foreach ($cacheKeys as $key) {
+            Cache::forget($key);
+        }
+
+        // Also clear previous hour cache in case of edge cases
+        $previousHour = now()->subHour()->format('Y-m-d-H');
+        $previousCacheKeys = [
+            'dashboard_data_' . $previousHour,
+            'dashboard_stats_' . $previousHour,
+            'dashboard_charts_' . $previousHour,
+            'dashboard_insights_' . $previousHour,
+        ];
+
+        foreach ($previousCacheKeys as $key) {
+            Cache::forget($key);
+        }
     }
 }

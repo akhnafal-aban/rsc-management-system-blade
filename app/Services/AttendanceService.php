@@ -5,11 +5,15 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Enums\MemberStatus;
+use App\Jobs\AutoCheckOutJob;
 use App\Models\Attendance;
 use App\Models\Member;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class AttendanceService
 {
@@ -20,8 +24,8 @@ class AttendanceService
 
     public function getAttendancesByDate(string $date, int $perPage = 10, ?string $search = null, ?string $statusFilter = null): LengthAwarePaginator
     {
-        $query = Attendance::with(['member', 'creator'])
-            ->whereDate('check_in_time', $date);
+        $query = Attendance::with(['creator'])
+            ->today($date);
 
         // Apply search filter
         if ($search) {
@@ -33,41 +37,29 @@ class AttendanceService
 
         // Apply status filter
         if ($statusFilter === 'checkin') {
-            $query->whereNull('check_out_time');
+            $query->checkedIn();
         } elseif ($statusFilter === 'checkout') {
-            $query->whereNotNull('check_out_time');
+            $query->checkedOut();
         }
 
         return $query->orderBy('check_in_time', 'desc')->paginate($perPage);
     }
 
-    public function getTodayStats(): array
-    {
-        return $this->getStatsByDate(Carbon::today()->format('Y-m-d'));
-    }
-
-    public function getStatsByDate(string $date): array
-    {
-        return [
-            'total_checkins' => Attendance::whereDate('check_in_time', $date)->count(),
-            'active_members' => Member::active()->count(),
-            'checked_in_today' => Attendance::whereDate('check_in_time', $date)
-                ->distinct('member_id')
-                ->count(),
-        ];
-    }
-
     public function searchMembers(string $query): Collection
     {
-        return Member::active()
-            ->where(function ($q) use ($query) {
-                $q->where('name', 'LIKE', "%{$query}%")
-                    ->orWhere('member_code', 'LIKE', "%{$query}%")
-                    ->orWhere('phone', 'LIKE', "%{$query}%");
-            })
-            ->orderBy('name')
-            ->limit(10)
-            ->get();
+        $cacheKey = CacheService::getMemberSearchKey($query, 10);
+
+        return Cache::remember($cacheKey, CacheService::CACHE_TTL_MEDIUM, function () use ($query) {
+            return Member::active()
+                ->where(function ($q) use ($query) {
+                    $q->where('name', 'LIKE', "%{$query}%")
+                        ->orWhere('member_code', 'LIKE', "%{$query}%")
+                        ->orWhere('phone', 'LIKE', "%{$query}%");
+                })
+                ->orderBy('name')
+                ->limit(10)
+                ->get();
+        });
     }
 
     public function getMemberById(string $memberId): ?Member
@@ -80,29 +72,48 @@ class AttendanceService
 
     public function searchActiveMembers(?string $search = null, int $perPage = 10): LengthAwarePaginator
     {
-        $query = Member::select('id', 'member_code', 'name', 'exp_date')
-            ->active();
-        // ->whereDate('exp_date', '>=', Carbon::today()->toDateString());
+        $cacheKey = CacheService::getMemberSearchKey($search ?? '', $perPage);
 
-        if (! empty($search = trim($search ?? ''))) {
-            $query->where(function ($q) use ($search) {
-                $q->where('member_code', 'like', "%{$search}%")
-                    ->orWhere('name', 'like', "%{$search}%");
-            });
-        }
+        return Cache::remember($cacheKey, CacheService::CACHE_TTL_SHORT, function () use ($search, $perPage) {
+            $today = Carbon::today();
 
-        return $query
-            ->orderBy('member_code')
-            ->orderBy('name')
-            ->paginate($perPage)
-            ->withQueryString();
+            $query = Member::select([
+                'id',
+                'member_code',
+                'name',
+                'exp_date',
+                'status',
+                // Subquery untuk cek apakah member sudah check-in hari ini
+                DB::raw("EXISTS(
+                    SELECT 1 FROM attendances 
+                    WHERE attendances.member_id = members.id 
+                    AND attendances.check_in_time >= '{$today->startOfDay()}' 
+                    AND attendances.check_in_time <= '{$today->endOfDay()}'
+                    AND attendances.check_out_time IS NULL
+                ) as has_checked_in_today"),
+            ]);
+
+            if (! empty($search = trim($search ?? ''))) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('member_code', 'like', "%{$search}%")
+                        ->orWhere('name', 'like', "%{$search}%");
+                });
+            }
+
+            return $query
+                ->orderByRaw("CASE WHEN status = 'ACTIVE' THEN 1 ELSE 2 END") // ACTIVE first, then INACTIVE
+                ->orderBy('member_code')
+                ->orderBy('name')
+                ->paginate($perPage)
+                ->withQueryString();
+        });
     }
 
     public function canCheckIn(Member $member): array
     {
-        $todayAttendance = Attendance::where('member_id', $member->id)
-            ->whereDate('check_in_time', Carbon::today())
-            ->whereNull('check_out_time')
+        $todayAttendance = Attendance::byMember($member->id)
+            ->today()
+            ->checkedIn()
             ->first();
 
         if ($todayAttendance) {
@@ -140,19 +151,49 @@ class AttendanceService
         ];
     }
 
-    public function checkInMember(Member $member, int $userId): Attendance
+    public function checkDuplicateCheckInToday(Member $member): array
     {
+        // Reuse the logic from canCheckIn to avoid duplicate query
+        $status = $this->canCheckIn($member);
+
+        if (! $status['can_checkin'] && $status['attendance']) {
+            return [
+                'can_checkin' => false,
+                'message' => 'Member sudah melakukan check-in hari ini pada '.$status['attendance']->check_in_time->format('H:i:s'),
+            ];
+        }
+
+        return [
+            'can_checkin' => $status['can_checkin'],
+            'message' => $status['message'],
+        ];
+    }
+
+    public function checkInMember(Member $member, int $userId, int $autoCheckoutHours = 3): Attendance
+    {
+        $checkInTime = Carbon::now();
+
         $attendance = Attendance::create([
             'member_id' => $member->id,
-            'check_in_time' => Carbon::now(),
+            'check_in_time' => $checkInTime,
             'created_by' => $userId,
         ]);
 
         // Update member's last check-in and total visits
         $member->update([
-            'last_check_in' => Carbon::now(),
+            'last_check_in' => $checkInTime,
             'total_visits' => $member->total_visits + 1,
         ]);
+
+        // Dispatch delayed auto-checkout job
+        $this->scheduleAutoCheckOut($attendance, $autoCheckoutHours);
+
+        // Invalidate relevant caches
+        CacheService::invalidateAttendanceCaches();
+
+        // Invalidate dashboard cache
+        $dashboardService = app(DashboardService::class);
+        $dashboardService->invalidateDashboardCache();
 
         return $attendance->load(['member', 'creator']);
     }
@@ -163,6 +204,16 @@ class AttendanceService
             'check_out_time' => Carbon::now(),
             'updated_by' => $userId,
         ]);
+
+        // Cancel any pending auto-checkout job for this attendance
+        $this->cancelAutoCheckOutJob($attendance);
+
+        // Invalidate relevant caches
+        CacheService::invalidateAttendanceCaches();
+
+        // Invalidate dashboard cache
+        $dashboardService = app(DashboardService::class);
+        $dashboardService->invalidateDashboardCache();
 
         return $attendance->fresh(['member', 'creator']);
     }
@@ -179,8 +230,8 @@ class AttendanceService
 
     public function exportAttendancesByDate(string $date): array
     {
-        $attendances = Attendance::with(['member', 'creator'])
-            ->whereDate('check_in_time', $date)
+        $attendances = Attendance::with(['creator'])
+            ->today($date)
             ->orderBy('check_in_time', 'desc')
             ->get();
 
@@ -199,5 +250,40 @@ class AttendanceService
         }
 
         return $data;
+    }
+
+    /**
+     * Schedule auto checkout job for the given attendance.
+     */
+    private function scheduleAutoCheckOut(Attendance $attendance, int $hours): void
+    {
+        try {
+            // Calculate delay in seconds
+            $delaySeconds = $hours * 3600; // Convert hours to seconds
+
+            // Dispatch the job with delay
+            AutoCheckOutJob::dispatch($attendance->id)
+                ->delay(now()->addSeconds($delaySeconds));
+
+            Log::info("Scheduled auto checkout for attendance {$attendance->id} in {$hours} hours");
+        } catch (\Exception $e) {
+            Log::error("Failed to schedule auto checkout for attendance {$attendance->id}: {$e->getMessage()}");
+        }
+    }
+
+    /**
+     * Cancel pending auto checkout job for the given attendance.
+     * Note: This is a simplified implementation. In a production environment,
+     * you might want to store job IDs and cancel them explicitly.
+     */
+    private function cancelAutoCheckOutJob(Attendance $attendance): void
+    {
+        try {
+            // For now, we rely on the job's own validation to skip if already checked out
+            // In a more advanced implementation, you could store job IDs and cancel them
+            Log::info("Manual checkout detected for attendance {$attendance->id}, auto checkout will be skipped");
+        } catch (\Exception $e) {
+            Log::error("Error during auto checkout cancellation for attendance {$attendance->id}: {$e->getMessage()}");
+        }
     }
 }

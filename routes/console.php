@@ -1,7 +1,9 @@
 <?php
 
+use App\Http\Controllers\NotificationController;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schedule;
 
@@ -17,21 +19,38 @@ Schedule::command('memberships:expire')
     ->onSuccess(function () {
         // Log success if needed
         Log::info('Membership expiration check completed successfully');
+
+        // Get expired members from cache
+        $expiredMembers = Cache::get('last_expired_members', []);
+
+        if (! empty($expiredMembers)) {
+            // Create notification for each expired member
+            foreach ($expiredMembers as $memberName) {
+                NotificationController::addCommandNotification(
+                    'Membership Expiration Check',
+                    'success',
+                    null,
+                    $memberName,
+                    null // No checkout time for membership expiration
+                );
+            }
+        } else {
+            // No members expired, send generic notification
+            NotificationController::addCommandNotification(
+                'Membership Expiration Check',
+                'success',
+                'Tidak ada keanggotaan yang expired hari ini'
+            );
+        }
     })
     ->onFailure(function () {
         // Log failure if needed
         Log::error('Membership expiration check failed');
-    });
 
-// Schedule auto check-out for members checked in for more than 5 hours
-// Run every hour to check for members who need auto check-out
-Schedule::command('attendance:auto-checkout --hours=3')
-    ->hourly()
-    ->withoutOverlapping()
-    ->runInBackground()
-    ->onSuccess(function () {
-        Log::info('Auto check-out process completed successfully');
-    })
-    ->onFailure(function () {
-        Log::error('Auto check-out process failed');
+        // Add notification
+        NotificationController::addCommandNotification(
+            'Membership Expiration Check',
+            'failed',
+            'Membership expiration check failed'
+        );
     });

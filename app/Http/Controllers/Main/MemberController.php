@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Main;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\ExtendMembershipRequest;
 use App\Http\Requests\StoreMemberRequest;
 use App\Http\Requests\UpdateMemberRequest;
 use App\Models\Member;
@@ -78,5 +79,38 @@ class MemberController extends Controller
 
         return redirect()->route('member.show', $member)
             ->with('success', 'Member berhasil diaktifkan.');
+    }
+
+    public function extend()
+    {
+        return view('pages.main.member.extend');
+    }
+
+    public function searchMembers()
+    {
+        $query = request('q', '');
+
+        if (strlen($query) < 2) {
+            return response()->json([]);
+        }
+
+        $members = $this->memberService->searchMembers($query);
+
+        return response()->json($members);
+    }
+
+    public function storeExtend(ExtendMembershipRequest $request)
+    {
+        $validated = $request->validated();
+
+        $member = $this->memberService->extendMembership(
+            (int) $validated['member_id'],
+            (int) $validated['membership_duration'],
+            $validated['payment_method'],
+            $validated['payment_notes'] ?? null
+        );
+
+        return redirect()->route('member.show', $member)
+            ->with('success', 'Membership berhasil diperpanjang.');
     }
 }

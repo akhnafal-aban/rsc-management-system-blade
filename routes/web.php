@@ -6,6 +6,7 @@ use App\Http\Controllers\Main\AttendanceController;
 use App\Http\Controllers\Main\DashboardController;
 use App\Http\Controllers\Main\MemberController;
 use App\Http\Controllers\Main\ReportController;
+use App\Http\Controllers\NotificationController;
 use Illuminate\Support\Facades\Route;
 
 // Guest-only routes
@@ -25,6 +26,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     // Members
+    Route::get('/member/search', [MemberController::class, 'searchMembers'])->name('member.search');
+    Route::get('/member/extend', [MemberController::class, 'extend'])->name('member.extend');
+    Route::post('/member/extend', [MemberController::class, 'storeExtend'])->name('member.extend.store');
     Route::resource('member', MemberController::class);
     Route::post('/member/{member}/suspend', [MemberController::class, 'suspend'])->name('member.suspend');
     Route::post('/member/{member}/activate', [MemberController::class, 'activate'])->name('member.activate');
@@ -38,6 +42,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/attendance/export', [AttendanceController::class, 'exportTodayAttendances'])->name('attendance.export');
 
     Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
+
+    // Notifications
+    Route::get('/notifications/scheduled-commands', [NotificationController::class, 'getScheduledCommandNotifications'])->name('notifications.scheduled-commands');
+    Route::post('/notifications/mark-read', [NotificationController::class, 'markNotificationsAsRead'])->name('notifications.mark-read');
 
     // Admin-only pages
     Route::middleware('role:admin')->group(function () {

@@ -43,7 +43,7 @@
 
                 <div class="flex items-center justify-between">
                     <label class="flex items-center">
-                        <input type="checkbox" name="remember" class="rounded border-border text-primary focus:ring-ring" />
+                        <input type="checkbox" name="remember" value="1" class="rounded border-border text-primary focus:ring-ring" />
                         <span class="ml-2 text-sm text-muted-foreground">Ingat saya</span>
                     </label>
                     <a href="#" class="text-sm text-primary hover:text-primary/80">Lupa password?</a>
