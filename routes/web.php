@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Route;
 // Guest-only routes
 Route::middleware('guest')->group(function () {
     Route::get('/', function () {
-        return view('welcome');
+        return redirect()->route('login');
     });
     Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
     Route::post('/login', [LoginController::class, 'login']);
