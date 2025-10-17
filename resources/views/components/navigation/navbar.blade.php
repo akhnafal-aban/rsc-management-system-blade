@@ -1,18 +1,30 @@
-<nav class="hidden sm:block bg-card border-b border-border px-4 sm:px-6 py-3 shadow-sm">
+<style>
+    .sidebar.open~.main-content nav {
+        left: 250px !important;
+    }
+</style>
+
+
+<nav class="hidden sm:block bg-card border-b border-border px-4 sm:px-6 py-3 shadow-sm fixed top-0 z-40 transition-all duration-500 ease-in-out"
+    style="left: 78px; right: 0;">
     <div class="flex items-center justify-between">
         <!-- Logo + Brand -->
         <div class="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
-            <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center shadow-sm overflow-hidden flex-shrink-0">
-                <img src="{{ asset('build/assets/img/rsc-logo.png') }}" alt="RSC Logo" class="w-full h-full object-cover rounded-xl">
+            <div
+                class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center shadow-sm overflow-hidden flex-shrink-0">
+                <img src="{{ asset('build/assets/img/rsc-logo.png') }}" alt="RSC Logo"
+                    class="w-full h-full object-cover rounded-xl">
             </div>
             <div class="min-w-0 flex-1">
-                <h1 class="text-sm sm:text-lg font-semibold text-card-foreground leading-tight truncate">Really Sports Center</h1>
+                <h1 class="text-sm sm:text-lg font-semibold text-card-foreground leading-tight truncate">Really Sports
+                    Center</h1>
                 <p class="text-xs text-muted-foreground tracking-wide hidden sm:block">Management System</p>
             </div>
         </div>
 
         <!-- Mobile menu button -->
-        <button id="mobile-menu-btn" class="lg:hidden p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors">
+        <button id="mobile-menu-btn"
+            class="lg:hidden p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors">
             <x-ui.icon name="menu" class="w-5 h-5" />
         </button>
 
@@ -102,13 +114,13 @@
     function toggleNotificationPopup() {
         const popup = document.getElementById('notification-popup');
         const popupMobile = document.getElementById('notification-popup-mobile');
-        
+
         // Determine which popup to use based on screen size
         const isMobile = window.innerWidth < 1024;
         const activePopup = isMobile ? popupMobile : popup;
-        
+
         if (!activePopup) return;
-        
+
         const isHidden = activePopup.classList.contains('hidden');
 
         if (isHidden) {
@@ -148,7 +160,7 @@
 
                 const updateContent = (targetContent) => {
                     if (!targetContent) return;
-                    
+
                     if (data.notifications.length === 0) {
                         targetContent.innerHTML = `
           <div class="p-4 text-center text-muted-foreground">
@@ -161,19 +173,22 @@
                         data.notifications.forEach(notification => {
                             const statusColor = notification.status === 'success' ? 'text-green-600' :
                                 'text-red-600';
-                            const statusIcon = notification.status === 'success' ? 'check-circle' : 'x-circle';
+                            const statusIcon = notification.status === 'success' ? 'check-circle' :
+                                'x-circle';
 
                             const iconClass = statusIcon === 'check-circle' ? 'icon-check' : 'icon-x';
                             // Format notification content based on command type
                             let notificationContent = '';
-                            if (notification.command === 'Auto Check-out Process' && notification.member_name && notification.checkout_time) {
+                            if (notification.command === 'Auto Check-out Process' && notification
+                                .member_name && notification.checkout_time) {
                                 notificationContent = `
                                 <p class="text-sm font-medium text-card-foreground">${notification.command}</p>
                                 <p class="text-xs ${statusColor} capitalize">${notification.status}</p>
                                 <p class="text-xs text-muted-foreground mt-1">${notification.member_name} berhasil di check-out otomatis ${notification.checkout_time}</p>
                                 <p class="text-xs text-muted-foreground mt-1">${notification.date} ${notification.time}</p>
                             `;
-                            } else if (notification.command === 'Membership Expiration Check' && notification.member_name && !notification.checkout_time) {
+                            } else if (notification.command === 'Membership Expiration Check' &&
+                                notification.member_name && !notification.checkout_time) {
                                 notificationContent = `
                                 <p class="text-sm font-medium text-card-foreground">${notification.command}</p>
                                 <p class="text-xs ${statusColor} capitalize">${notification.status}</p>
@@ -229,14 +244,14 @@
         // Update desktop bell icon
         const bellIcon = document.getElementById('bell-icon');
         const bellSvg = document.getElementById('bell-svg');
-        
+
         // Update mobile bell icon
         const bellIconMobile = document.getElementById('bell-icon-mobile');
         const bellSvgMobile = document.getElementById('bell-svg-mobile');
 
         const updateIcon = (icon, svg) => {
             if (!icon || !svg) return;
-            
+
             if (hasNew) {
                 // Add notification state classes - orange color with pulse animation
                 icon.classList.add('text-orange-500', 'animate-pulse');
@@ -302,7 +317,7 @@
     document.addEventListener('DOMContentLoaded', function() {
         const mobileMenuBtn = document.getElementById('mobile-menu-btn');
         const sidebar = document.getElementById('sidebar');
-        
+
         if (mobileMenuBtn && sidebar) {
             mobileMenuBtn.addEventListener('click', function() {
                 // Toggle sidebar by clicking the sidebar button
@@ -312,7 +327,7 @@
                 }
             });
         }
-        
+
         startNotificationPolling();
     });
 

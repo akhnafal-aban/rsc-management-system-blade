@@ -29,9 +29,6 @@
 
                 <div class="space-y-4">
                     <div>
-                        <label for="member_search" class="block text-sm font-medium text-card-foreground mb-2">
-                            Cari Member <span class="text-destructive">*</span>
-                        </label>
                         <div class="relative">
                             <x-ui.icon name="search"
                                 class="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -114,15 +111,15 @@
                 </div>
             </div>
 
-            <div class="flex items-center justify-end space-x-4">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-2 sm:space-x-4 mt-4">
                 <a href="{{ route('member.index') }}"
-                    class="px-6 py-2 border border-border bg-background text-foreground rounded-lg hover:bg-muted/50 transition-colors">
+                    class="mb-2 w-full sm:w-auto inline-flex items-center justify-center px-6 py-2 border border-border bg-background text-foreground rounded-lg hover:bg-muted/50 transition-colors">
                     Batal
                 </a>
                 <button type="submit" id="submit_btn" disabled
-                    class="px-6 py-2 rounded-lg bubblegum-button-primary text-chart-2-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                    class="w-full sm:w-auto inline-flex items-center justify-center px-6 py-2 rounded-lg bubblegum-button-primary text-chart-2-foreground transition-colors">
                     <x-ui.icon name="calendar-plus" class="w-4 h-4 mr-2 inline" />
-                    Perpanjang Membership
+                    Perpanjang
                 </button>
             </div>
         </form>
@@ -131,6 +128,8 @@
     @push('scripts')
         <script>
             document.addEventListener('DOMContentLoaded', function() {
+                console.log('DOM loaded, initializing member search...');
+                
                 const memberSearch = document.getElementById('member_search');
                 const memberResults = document.getElementById('member_results');
                 const memberList = document.getElementById('member_list');
@@ -141,10 +140,29 @@
                 const clearSelection = document.getElementById('clear_selection');
                 const submitBtn = document.getElementById('submit_btn');
 
+                // Debug: Check if all elements are found
+                console.log('Elements found:', {
+                    memberSearch: !!memberSearch,
+                    memberResults: !!memberResults,
+                    memberList: !!memberList,
+                    selectedMember: !!selectedMember,
+                    selectedMemberName: !!selectedMemberName,
+                    selectedMemberInfo: !!selectedMemberInfo,
+                    memberIdInput: !!memberIdInput,
+                    clearSelection: !!clearSelection,
+                    submitBtn: !!submitBtn
+                });
+
+                if (!memberSearch || !memberResults || !memberList) {
+                    console.error('Required DOM elements not found!');
+                    return;
+                }
+
                 let searchTimeout;
 
                 // Search members
                 memberSearch.addEventListener('input', function() {
+                    console.log('Search input event triggered, value:', this.value);
                     const query = this.value.trim();
 
                     clearTimeout(searchTimeout);
@@ -155,22 +173,51 @@
                     }
 
                     searchTimeout = setTimeout(() => {
-                        fetch(`{{ route('member.search') }}?q=${encodeURIComponent(query)}`)
-                            .then(response => response.json())
-                            .then(data => {
-                                displaySearchResults(data);
-                            })
-                            .catch(error => {
-                                console.error('Error searching members:', error);
-                            });
+                        // Show loading state
+                        memberList.innerHTML = '<div class="p-3 text-center text-muted-foreground">Mencari...</div>';
+                        memberResults.classList.remove('hidden');
+
+                        const searchUrl = `{{ route('member.search') }}?q=${encodeURIComponent(query)}`;
+                        console.log('Making fetch request to:', searchUrl);
+
+                        fetch(searchUrl, {
+                            method: 'GET',
+                            headers: {
+                                'Accept': 'application/json',
+                                'Content-Type': 'application/json',
+                                'X-Requested-With': 'XMLHttpRequest'
+                            }
+                        })
+                        .then(response => {
+                            console.log('Response status:', response.status);
+                            console.log('Response headers:', response.headers);
+                            if (!response.ok) {
+                                throw new Error(`HTTP error! status: ${response.status}`);
+                            }
+                            return response.json();
+                        })
+                        .then(data => {
+                            console.log('Search results received:', data);
+                            console.log('Results count:', data ? data.length : 0);
+                            displaySearchResults(data);
+                        })
+                        .catch(error => {
+                            console.error('Error searching members:', error);
+                            memberList.innerHTML = '<div class="p-3 text-center text-red-500">Error: Gagal mencari member</div>';
+                            memberResults.classList.remove('hidden');
+                        });
                     }, 300);
                 });
 
                 function displaySearchResults(members) {
-                    if (members.length === 0) {
+                    console.log('Displaying search results:', members);
+                    
+                    if (!members || members.length === 0) {
+                        console.log('No members found, showing empty state');
                         memberList.innerHTML =
                             '<div class="p-3 text-center text-muted-foreground">Tidak ada member ditemukan</div>';
                     } else {
+                        console.log('Rendering', members.length, 'members');
                         memberList.innerHTML = members.map(member => `
                         <div class="p-3 hover:bg-muted/50 cursor-pointer member-option" data-member-id="${member.id}" data-member-name="${member.name}" data-member-code="${member.member_code}" data-member-email="${member.email}">
                             <div class="font-medium text-card-foreground">${member.name}</div>
@@ -179,31 +226,44 @@
                     `).join('');
                     }
 
+                    console.log('Showing results container');
                     memberResults.classList.remove('hidden');
                 }
 
                 // Handle member selection
                 memberList.addEventListener('click', function(e) {
+                    console.log('Member list clicked, target:', e.target);
                     const memberOption = e.target.closest('.member-option');
                     if (memberOption) {
+                        console.log('Member option clicked:', memberOption);
                         const memberId = memberOption.dataset.memberId;
                         const memberName = memberOption.dataset.memberName;
                         const memberCode = memberOption.dataset.memberCode;
                         const memberEmail = memberOption.dataset.memberEmail;
 
+                        console.log('Selected member data:', { memberId, memberName, memberCode, memberEmail });
                         selectMember(memberId, memberName, memberCode, memberEmail);
+                    } else {
+                        console.log('No member option found in click target');
                     }
                 });
 
                 function selectMember(id, name, code, email) {
+                    console.log('Selecting member:', { id, name, code, email });
+                    
                     memberIdInput.value = id;
                     selectedMemberName.textContent = name;
                     selectedMemberInfo.textContent = `${code} • ${email}`;
+
+                    console.log('Member ID input value set to:', memberIdInput.value);
+                    console.log('Selected member name set to:', selectedMemberName.textContent);
+                    console.log('Selected member info set to:', selectedMemberInfo.textContent);
 
                     selectedMember.classList.remove('hidden');
                     memberResults.classList.add('hidden');
                     memberSearch.value = '';
 
+                    console.log('Member selection completed, updating submit button');
                     updateSubmitButton();
                 }
 
@@ -220,19 +280,48 @@
                     const hasDuration = document.getElementById('membership_duration').value !== '';
                     const hasPaymentMethod = document.getElementById('payment_method').value !== '';
 
-                    submitBtn.disabled = !(hasMember && hasDuration && hasPaymentMethod);
+                    console.log('Submit button state check:', {
+                        hasMember,
+                        hasDuration,
+                        hasPaymentMethod,
+                        memberId: memberIdInput.value,
+                        duration: document.getElementById('membership_duration').value,
+                        paymentMethod: document.getElementById('payment_method').value
+                    });
+
+                    const shouldEnable = hasMember && hasDuration && hasPaymentMethod;
+                    submitBtn.disabled = !shouldEnable;
+                    
+                    console.log('Submit button enabled:', shouldEnable);
                 }
 
                 // Listen for form field changes
-                document.getElementById('membership_duration').addEventListener('change', updateSubmitButton);
-                document.getElementById('payment_method').addEventListener('change', updateSubmitButton);
+                const durationSelect = document.getElementById('membership_duration');
+                const paymentSelect = document.getElementById('payment_method');
+                
+                if (durationSelect) {
+                    durationSelect.addEventListener('change', function() {
+                        console.log('Membership duration changed to:', this.value);
+                        updateSubmitButton();
+                    });
+                }
+                
+                if (paymentSelect) {
+                    paymentSelect.addEventListener('change', function() {
+                        console.log('Payment method changed to:', this.value);
+                        updateSubmitButton();
+                    });
+                }
 
                 // Hide results when clicking outside
                 document.addEventListener('click', function(e) {
                     if (!memberSearch.contains(e.target) && !memberResults.contains(e.target)) {
+                        console.log('Clicking outside search area, hiding results');
                         memberResults.classList.add('hidden');
                     }
                 });
+                
+                console.log('All event listeners attached successfully');
             });
         </script>
     @endpush

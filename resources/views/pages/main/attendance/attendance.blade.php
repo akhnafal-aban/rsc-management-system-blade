@@ -60,7 +60,6 @@
                         </a>
                     </div>
 
-
                     {{-- Search & Filter --}}
                     <form method="GET" action="{{ route('attendance.index') }}"
                         class="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
@@ -125,7 +124,7 @@
                         </tr>
                     </thead>
                     <tbody class="bg-card divide-y divide-border">
-                        @foreach ($attendances as $attendance)
+                        @forelse ($attendances as $attendance)
                             <tr class="hover:bg-muted/50 transition-colors">
                                 <td class="px-6 py-4 text-sm font-medium">{{ $attendance->member->member_code }}</td>
                                 <td class="px-6 py-4 text-sm">{{ $attendance->member->name }}</td>
@@ -163,10 +162,18 @@
                                     @endif
                                 </td>
                             </tr>
-                        @endforeach
+                        @empty
+                            <tr>
+                                <td colspan="7" class="text-center py-12 text-muted-foreground">
+                                    <x-ui.icon name="user-check" class="w-10 h-10 mx-auto mb-2" />
+                                    <p class="text-sm">Tidak ada data absensi ditemukan.</p>
+                                </td>
+                            </tr>
+                        @endforelse
                     </tbody>
                 </table>
             </div>
+
 
             {{-- Mobile Card View --}}
             <div class="sm:hidden space-y-3">

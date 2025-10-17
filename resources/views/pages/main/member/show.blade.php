@@ -67,18 +67,16 @@
                         <div>
                             <label class="block text-sm font-medium text-muted-foreground">Status</label>
                             @if ($member->status->value === 'ACTIVE')
-                                <span
-                                    class="mt-1 text-sm text-card-foreground text-green-200">Aktif</span>
+                                <span class="mt-1 text-sm text-card-foreground text-green-200">Aktif</span>
                             @else
-                                <span
-                                    class="mt-1 text-sm text-card-foreground text-red-200">Tidak
+                                <span class="mt-1 text-sm text-card-foreground text-red-200">Tidak
                                     Aktif</span>
                             @endif
                         </div>
                     </div>
                 </div>
 
-                <!-- Status & Aksi -->
+                <!-- Aksi -->
                 <div class="w-full lg:w-1/3 bg-card p-6 rounded-lg shadow-sm border border-border">
                     <div class="flex items-center mb-4">
                         <x-ui.icon name="user-check" class="w-5 h-5 text-chart-1 mr-2" />
@@ -87,6 +85,13 @@
                     <div class="space-y-4">
 
                         <div class="space-y-2">
+                            <!-- Tombol Perpanjang Membership -->
+                            <a href="{{ route('member.extend') }}?member_id={{ $member->id }}"
+                                class="w-full inline-flex items-center justify-center px-3 py-2 border border-primary text-primary rounded-lg hover:bg-primary/10 transition-colors">
+                                <x-ui.icon name="calendar-plus" class="w-4 h-4 mr-2" />
+                                Perpanjang Membership
+                            </a>
+
                             @if ($member->status->value === 'ACTIVE')
                                 <form action="{{ route('member.suspend', $member) }}" method="POST"
                                     class="inline-block w-full">

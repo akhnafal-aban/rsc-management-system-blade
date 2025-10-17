@@ -104,7 +104,7 @@ class MemberController extends Controller
         $validated = $request->validated();
 
         $member = $this->memberService->extendMembership(
-            $validated['member_id'],
+            (int) $validated['member_id'],
             (int) $validated['membership_duration'],
             $validated['payment_method'],
             $validated['payment_notes'] ?? null
