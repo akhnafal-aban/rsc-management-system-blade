@@ -151,9 +151,9 @@
                                         <form method="POST" action="{{ route('attendance.checkout') }}" class="inline">
                                             @csrf
                                             <input type="hidden" name="attendance_id" value="{{ $attendance->id }}">
-                                            <button type="submit"
+                                            <button type="button"
                                                 class="px-3 py-1 text-xs bg-chart-1 text-chart-1-foreground rounded-lg hover:bg-chart-1/90 transition-colors"
-                                                onclick="return confirm('Apakah Anda yakin ingin check-out member ini?')">
+                                                onclick="confirmCheckout({{ $attendance->id }})">
                                                 Check Out
                                             </button>
                                         </form>
@@ -198,9 +198,9 @@
                             <form method="POST" action="{{ route('attendance.checkout') }}">
                                 @csrf
                                 <input type="hidden" name="attendance_id" value="{{ $attendance->id }}">
-                                <button type="submit"
+                                <button type="button"
                                     class="w-full text-xs py-2 rounded-md bg-chart-1 text-chart-1-foreground hover:bg-chart-1/90 transition-colors"
-                                    onclick="return confirm('Check-out member ini?')">
+                                    onclick="confirmCheckout({{ $attendance->id }})">
                                     Check Out
                                 </button>
                             </form>
@@ -226,3 +226,17 @@
 
     </div>
 @endsection
+
+<script>
+function confirmCheckout(attendanceId) {
+    showConfirm(
+        'Apakah Anda yakin ingin check-out member ini?',
+        function() {
+            const form = document.querySelector(`form input[name="attendance_id"][value="${attendanceId}"]`).closest('form');
+            if (form) form.submit();
+        },
+        'Konfirmasi Check Out',
+        'info'
+    );
+}
+</script>

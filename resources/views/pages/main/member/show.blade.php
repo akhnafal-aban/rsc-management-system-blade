@@ -114,12 +114,11 @@
                                 </form>
                             @endif
 
-                            <form action="{{ route('member.destroy', $member) }}" method="POST"
-                                class="inline-block w-full"
-                                onsubmit="return confirm('Apakah Anda yakin ingin menghapus member ini? Tindakan ini tidak dapat dibatalkan.')">
+                            <form id="delete-member-form" action="{{ route('member.destroy', $member) }}" method="POST"
+                                class="inline-block w-full">
                                 @csrf
                                 @method('DELETE')
-                                <button type="submit"
+                                <button type="button" onclick="confirmDeleteMember()"
                                     class="w-full inline-flex items-center justify-center px-3 py-2 border border-destructive text-destructive rounded-lg hover:bg-destructive/10 transition-colors">
                                     <x-ui.icon name="trash" class="w-4 h-4 mr-2" />
                                     Hapus Member
@@ -174,3 +173,16 @@
         </div>
     </div>
 @endsection
+
+<script>
+function confirmDeleteMember() {
+    showConfirm(
+        'Apakah Anda yakin ingin menghapus member ini? Tindakan ini tidak dapat dibatalkan.',
+        function() {
+            document.getElementById('delete-member-form').submit();
+        },
+        'Konfirmasi Hapus Member',
+        'error'
+    );
+}
+</script>

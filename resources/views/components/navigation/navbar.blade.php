@@ -12,7 +12,7 @@
         <div class="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
             <div
                 class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center shadow-sm overflow-hidden flex-shrink-0">
-                <img src="{{ asset('build/assets/img/rsc-logo.png') }}" alt="RSC Logo"
+                <img src="{{ Vite::asset('resources/images/rsc_logo.png') }}" alt="RSC Logo"
                     class="w-full h-full object-cover rounded-xl">
             </div>
             <div class="min-w-0 flex-1">
@@ -95,20 +95,25 @@
     let notificationInterval;
 
     function handleLogout() {
-        if (confirm('Apakah Anda yakin ingin keluar?')) {
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = '{{ route('logout') }}';
+        showConfirm(
+            'Apakah Anda yakin ingin keluar dari sistem?',
+            function() {
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '{{ route('logout') }}';
 
-            const token = document.createElement('input');
-            token.type = 'hidden';
-            token.name = '_token';
-            token.value = '{{ csrf_token() }}';
+                const token = document.createElement('input');
+                token.type = 'hidden';
+                token.name = '_token';
+                token.value = '{{ csrf_token() }}';
 
-            form.appendChild(token);
-            document.body.appendChild(form);
-            form.submit();
-        }
+                form.appendChild(token);
+                document.body.appendChild(form);
+                form.submit();
+            },
+            'Konfirmasi Logout',
+            'warning'
+        );
     }
 
     function toggleNotificationPopup() {

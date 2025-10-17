@@ -13,8 +13,6 @@
                 </a>
             </div>
         </div>
-        
-        
 
         <!-- Aksi Cepat -->
         <div class="bg-card rounded-lg shadow-sm border border-border p-6">

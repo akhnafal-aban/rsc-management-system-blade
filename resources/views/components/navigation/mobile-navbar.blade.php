@@ -57,7 +57,7 @@
     <div class="h-16 flex items-center justify-between px-4 border-b border-border">
         <div class="flex items-center space-x-3">
             <div class="w-8 h-8 rounded-xl flex items-center justify-center shadow-sm overflow-hidden">
-                <img src="{{ asset('build/assets/img/rsc-logo.png') }}" alt="RSC Logo" class="w-full h-full object-cover rounded-xl">
+                <img src="{{ Vite::asset('resources/images/rsc_logo.png') }}" alt="RSC Logo" class="w-full h-full object-cover rounded-xl">
             </div>
             <h2 class="text-lg font-semibold text-foreground">Navigation</h2>
         </div>
@@ -334,19 +334,24 @@
     });
 
     function handleLogout() {
-        if (confirm('Apakah Anda yakin ingin keluar?')) {
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = '{{ route('logout') }}';
+        showConfirm(
+            'Apakah Anda yakin ingin keluar dari sistem?',
+            function() {
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '{{ route('logout') }}';
 
-            const token = document.createElement('input');
-            token.type = 'hidden';
-            token.name = '_token';
-            token.value = '{{ csrf_token() }}';
+                const token = document.createElement('input');
+                token.type = 'hidden';
+                token.name = '_token';
+                token.value = '{{ csrf_token() }}';
 
-            form.appendChild(token);
-            document.body.appendChild(form);
-            form.submit();
-        }
+                form.appendChild(token);
+                document.body.appendChild(form);
+                form.submit();
+            },
+            'Konfirmasi Logout',
+            'warning'
+        );
     }
 </script>

@@ -118,7 +118,7 @@
     @if (isset($user))
         <div class="absolute bottom-4 left-0 w-full px-[14px]">
             <!-- Profile Button -->
-            <div class="bg-card/50 rounded-xl flex h-[50px] w-full rounded-xl items-center no-underline transition-all duration-[400ms] ease-in-out bg-transparent text-foreground px-3 cursor-pointer hover:bg-primary hover:text-destructive-foreground profile-details-btn"
+            <div class="bg-card/50 rounded-xl flex h-[50px] w-full rounded-xl items-center no-underline transition-all duration-[400ms] ease-in-out bg-transparent text-foreground px-3 cursor-pointer hover:bg-primary/30 hover:text-destructive-foreground profile-details-btn"
                 onclick="toggleProfileDropdown()">
 
                 <!-- Profile Icon -->
@@ -185,20 +185,25 @@
     }
 
     function handleLogout() {
-        if (confirm('Apakah Anda yakin ingin keluar?')) {
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = '{{ route('logout') }}';
+        showConfirm(
+            'Apakah Anda yakin ingin keluar dari sistem?',
+            function() {
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '{{ route('logout') }}';
 
-            const token = document.createElement('input');
-            token.type = 'hidden';
-            token.name = '_token';
-            token.value = '{{ csrf_token() }}';
+                const token = document.createElement('input');
+                token.type = 'hidden';
+                token.name = '_token';
+                token.value = '{{ csrf_token() }}';
 
-            form.appendChild(token);
-            document.body.appendChild(form);
-            form.submit();
-        }
+                form.appendChild(token);
+                document.body.appendChild(form);
+                form.submit();
+            },
+            'Konfirmasi Logout',
+            'warning'
+        );
     }
 
     function handleSettings() {
@@ -208,7 +213,11 @@
         dropdown.classList.remove('opacity-100', 'pointer-events-auto', 'scale-100');
 
         // Show settings modal or redirect to settings page
-        alert('Fitur pengaturan akan segera tersedia!');
+        showAlert(
+            'Fitur pengaturan akan segera tersedia!',
+            'Informasi',
+            'info'
+        );
         // You can replace this with actual settings functionality later
     }
 

@@ -27,7 +27,7 @@
         </div>
 
         {{-- Wrapper --}}
-        <div class="bg-card text-card-foreground rounded-lg shadow-sm border border-border p-6">
+        <div class="text-card-foreground rounded-lg shadow-sm border border-border">
             {{-- Tabel untuk desktop --}}
             <div class="hidden sm:block overflow-x-auto">
                 <table class="min-w-full divide-y divide-border text-sm">

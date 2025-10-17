@@ -147,10 +147,10 @@
                                             <form action="{{ route('member.suspend', $member) }}" method="POST"
                                                 class="inline">
                                                 @csrf
-                                                <button type="submit"
+                                                <button type="button"
                                                     class="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-md bg-background border border-border text-foreground hover:bg-muted/50 transition-colors"
                                                     title="Nonaktifkan"
-                                                    onclick="return confirm('Apakah Anda yakin ingin menonaktifkan member ini?')">
+                                                    onclick="confirmDeactivateMember({{ $member->id }})">
                                                     <x-ui.icon name="user-x" class="w-3 h-3" />
                                                 </button>
                                             </form>
@@ -158,10 +158,10 @@
                                             <form action="{{ route('member.activate', $member) }}" method="POST"
                                                 class="inline">
                                                 @csrf
-                                                <button type="submit"
+                                                <button type="button"
                                                     class="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-md bg-background border border-border text-foreground hover:bg-muted/50 transition-colors"
                                                     title="Aktifkan"
-                                                    onclick="return confirm('Apakah Anda yakin ingin mengaktifkan member ini?')">
+                                                    onclick="confirmActivateMember({{ $member->id }})">
                                                     <x-ui.icon name="user-check" class="w-3 h-3" />
                                                 </button>
                                             </form>
@@ -170,10 +170,10 @@
                                             class="inline">
                                             @csrf
                                             @method('DELETE')
-                                            <button type="submit"
+                                            <button type="button"
                                                 class="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-md bg-background border border-border text-destructive hover:bg-destructive/10 transition-colors"
                                                 title="Hapus"
-                                                onclick="return confirm('Apakah Anda yakin ingin menghapus member ini? Tindakan ini tidak dapat dibatalkan.')">
+                                                onclick="confirmDeleteMember({{ $member->id }})">
                                                 <x-ui.icon name="trash" class="w-3 h-3" />
                                             </button>
                                         </form>
@@ -260,10 +260,10 @@
                                     <form action="{{ route('member.suspend', $member) }}" method="POST"
                                         class="inline flex-1">
                                         @csrf
-                                        <button type="submit"
+                                        <button type="button"
                                             class="w-full flex justify-center items-center py-2 text-[11px] border border-border rounded bg-background hover:bg-muted/50 transition-colors"
                                             title="Nonaktifkan"
-                                            onclick="return confirm('Apakah Anda yakin ingin menonaktifkan member ini?')">
+                                            onclick="confirmDeactivateMember({{ $member->id }})">
                                             <x-ui.icon name="user-x" class="w-3 h-3" />
                                         </button>
                                     </form>
@@ -271,10 +271,10 @@
                                     <form action="{{ route('member.activate', $member) }}" method="POST"
                                         class="inline flex-1">
                                         @csrf
-                                        <button type="submit"
+                                        <button type="button"
                                             class="w-full flex justify-center items-center py-2 text-[11px] border border-border rounded bg-background hover:bg-muted/50 transition-colors"
                                             title="Aktifkan"
-                                            onclick="return confirm('Apakah Anda yakin ingin mengaktifkan member ini?')">
+                                            onclick="confirmActivateMember({{ $member->id }})">
                                             <x-ui.icon name="user-check" class="w-3 h-3" />
                                         </button>
                                     </form>
@@ -283,10 +283,10 @@
                                     class="inline flex-1">
                                     @csrf
                                     @method('DELETE')
-                                    <button type="submit"
+                                    <button type="button"
                                         class="w-full flex justify-center items-center py-2 text-[11px] border border-border rounded bg-background text-destructive hover:bg-destructive/10 transition-colors"
                                         title="Hapus"
-                                        onclick="return confirm('Apakah Anda yakin ingin menghapus member ini?')">
+                                        onclick="confirmDeleteMember({{ $member->id }})">
                                         <x-ui.icon name="trash" class="w-3 h-3" />
                                     </button>
                                 </form>
@@ -318,3 +318,49 @@
 
         </div>
     @endsection
+
+<script>
+function confirmDeactivateMember(memberId) {
+    showConfirm(
+        'Apakah Anda yakin ingin menonaktifkan member ini?',
+        function() {
+            const form = document.querySelector(`form[action*="/member/${memberId}/suspend"]`);
+            if (form) form.submit();
+        },
+        'Konfirmasi Nonaktifkan Member',
+        'warning'
+    );
+}
+
+function confirmActivateMember(memberId) {
+    showConfirm(
+        'Apakah Anda yakin ingin mengaktifkan member ini?',
+        function() {
+            const form = document.querySelector(`form[action*="/member/${memberId}/activate"]`);
+            if (form) form.submit();
+        },
+        'Konfirmasi Aktifkan Member',
+        'info'
+    );
+}
+
+function confirmDeleteMember(memberId) {
+    showConfirm(
+        'Apakah Anda yakin ingin menghapus member ini? Tindakan ini tidak dapat dibatalkan.',
+        function() {
+            const form = document.querySelector(`form[action*="/member/${memberId}"][method="POST"]`);
+            if (form) {
+                // Add DELETE method
+                const methodInput = document.createElement('input');
+                methodInput.type = 'hidden';
+                methodInput.name = '_method';
+                methodInput.value = 'DELETE';
+                form.appendChild(methodInput);
+                form.submit();
+            }
+        },
+        'Konfirmasi Hapus Member',
+        'error'
+    );
+}
+</script>

@@ -9,8 +9,8 @@
     <title>{{ config('app.name', 'Laravel') }}</title>
 
     <!-- Favicon -->
-    <link rel="icon" type="image/jpeg" href="{{ asset('build/assets/img/rsc-logo.png') }}">
-    <link rel="shortcut icon" type="image/jpeg" href="{{ asset('build/assets/img/rsc-logo.png') }}">
+    <link rel="icon" type="image/jpeg" href="{{ Vite::asset('resources/images/rsc_logo.png') }}">
+    <link rel="shortcut icon" type="image/jpeg" href="{{ Vite::asset('resources/images/rsc_logo.png') }}">
 
     <!-- Styles / Scripts -->
     @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -21,6 +21,7 @@
     @include('components.navigation.mobile-navbar')
     @include('components.navigation.sidebar')
     @include('components.ui.session-notifications')
+    @include('components.ui.modal')
 
     <div class="main-content flex flex-col flex-1 transition-all duration-500 ease-in-out">
         <main class="flex-1 overflow-y-auto">
