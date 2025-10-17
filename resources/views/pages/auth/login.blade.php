@@ -20,10 +20,10 @@
                 @endif
                 <div>
                     @include('components.ui.input', [
-                        'label' => 'Alamat Email',
-                        'name' => 'email',
-                        'type' => 'email',
-                        'placeholder' => 'Masukkan Email',
+                        'label' => 'Email atau Nama',
+                        'name' => 'login',
+                        'type' => 'text',
+                        'placeholder' => 'Masukkan Email atau Nama',
                         'required' => true,
                     ])
                 </div>
