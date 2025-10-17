@@ -2,41 +2,25 @@
 @section('title', 'Tambah Member')
 @section('content')
     <div class="space-y-6">
-        <div class="flex items-center justify-between">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-                <h1 class="text-2xl font-bold text-foreground">Tambah Member Baru</h1>
-                <p class="text-muted-foreground mt-1">Masukkan informasi member untuk mendaftarkan anggota baru</p>
+                <h1 class="text-xl sm:text-2xl font-bold text-foreground">Tambah Member Baru</h1>
             </div>
             <a href="{{ route('member.index') }}" 
-                class="inline-flex items-center px-4 py-2 border border-border bg-background text-foreground rounded-lg hover:bg-muted/50 transition-colors">
+                class="inline-flex items-center justify-center px-4 py-2 border border-border bg-background text-foreground rounded-lg hover:bg-muted/50 transition-colors w-full sm:w-auto">
                 <x-ui.icon name="chevron-left" class="w-4 h-4 mr-2" />
                 <span>Kembali</span>
             </a>
         </div>
 
-        @if ($errors->any())
-            <div class="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
-                <div class="flex">
-                    <x-ui.icon name="alert-circle" class="w-5 h-5 text-destructive mr-3 mt-0.5" />
-                    <div>
-                        <h3 class="text-sm font-medium text-destructive">Terdapat kesalahan:</h3>
-                        <ul class="mt-2 text-sm text-destructive list-disc list-inside">
-                            @foreach ($errors->all() as $error)
-                                <li>{{ $error }}</li>
-                            @endforeach
-                        </ul>
-                    </div>
-                </div>
-            </div>
-        @endif
 
         <form action="{{ route('member.store') }}" method="POST" class="space-y-6">
             @csrf
             
-            <div class="bg-card p-6 rounded-lg shadow-sm border border-border">
+            <div class="bg-card p-4 sm:p-6 rounded-lg shadow-sm border border-border">
                 <h2 class="text-lg font-semibold text-card-foreground mb-4">Informasi Member</h2>
                 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
                     <div>
                         <label for="name" class="block text-sm font-medium text-card-foreground mb-2">Nama Lengkap *</label>
                         <input type="text" id="name" name="name" value="{{ old('name') }}" required
@@ -81,14 +65,6 @@
                         </select>
                     </div>
 
-                    <div>
-                        <label for="status" class="block text-sm font-medium text-card-foreground mb-2">Status</label>
-                        <select id="status" name="status"
-                            class="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent">
-                            <option value="ACTIVE" {{ old('status', 'ACTIVE') == 'ACTIVE' ? 'selected' : '' }}>Aktif</option>
-                            <option value="INACTIVE" {{ old('status') == 'INACTIVE' ? 'selected' : '' }}>Tidak Aktif</option>
-                        </select>
-                    </div>
                 </div>
 
                 <div class="mt-6">
@@ -99,14 +75,14 @@
                 </div>
             </div>
 
-            <div class="flex items-center justify-end space-x-4">
+            <div class="flex flex-col sm:flex-row items-center justify-end gap-3 sm:gap-4">
                 <a href="{{ route('member.index') }}" 
-                    class="px-6 py-2 border border-border bg-background text-foreground rounded-lg hover:bg-muted/50 transition-colors">
+                    class="w-full sm:w-auto px-6 py-2 border border-border bg-background text-foreground rounded-lg hover:bg-muted/50 transition-colors text-center">
                     Batal
                 </a>
                 <button type="submit"
-                    class="px-6 py-2 rounded-lg bubblegum-button-primary text-chart-2-foreground transition-colors">
-                    <x-ui.icon name="plus" class="w-4 h-4 mr-2 inline" />
+                    class="w-full sm:w-auto px-6 py-2 rounded-lg bubblegum-button-primary text-chart-2-foreground transition-colors flex items-center justify-center">
+                    <x-ui.icon name="plus" class="w-4 h-4 mr-2" />
                     Tambah Member
                 </button>
             </div>

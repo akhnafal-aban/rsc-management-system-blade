@@ -3,12 +3,14 @@
 @php
   $iconMap = [
     'calendar'      => 'tabler-calendar',
+    'calendar-plus'      => 'tabler-calendar-plus',
     'clock'         => 'tabler-clock',
     'user-check'    => 'tabler-user-check',
     'users'         => 'tabler-users',
     'trending-up'   => 'tabler-trending-up',
     'dollar-sign'   => 'tabler-currency-dollar',
     'bell'          => 'tabler-bell',
+    'bell-notification' => 'tabler-bell-filled',
     'settings'      => 'tabler-settings',
     'user'          => 'tabler-user',
     'log-out'       => 'tabler-logout',

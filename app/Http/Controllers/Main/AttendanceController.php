@@ -25,10 +25,10 @@ class AttendanceController extends Controller
         $dateFilter = $request->get('date', now()->format('Y-m-d'));
 
         $attendances = $this->attendanceService->getAttendancesByDate($dateFilter, 10, $search, $statusFilter);
-        $stats = $this->attendanceService->getStatsByDate($dateFilter);
+        // $stats = $this->attendanceService->getStatsByDate($dateFilter);
         $searchResults = collect();
 
-        return view('pages.main.attendance.attendance', compact('attendances', 'stats', 'searchResults', 'search', 'statusFilter', 'dateFilter'));
+        return view('pages.main.attendance.attendance', compact('attendances', 'searchResults', 'search', 'statusFilter', 'dateFilter'));
     }
 
     public function checkInPage(Request $request): View
@@ -67,6 +67,14 @@ class AttendanceController extends Controller
             return redirect()->back()->with('error', 'Member tidak ditemukan');
         }
 
+        // Check for duplicate check-in today (main validation)
+        $duplicateCheck = $this->attendanceService->checkDuplicateCheckInToday($member);
+
+        if (! $duplicateCheck['can_checkin']) {
+            return redirect()->back()->with('error', $duplicateCheck['message']);
+        }
+
+        // Additional check for member status and expiration (as backup)
         $status = $this->attendanceService->canCheckIn($member);
 
         if (! $status['can_checkin']) {

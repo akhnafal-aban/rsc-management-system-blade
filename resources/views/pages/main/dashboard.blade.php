@@ -2,17 +2,19 @@
 @section('title', 'Dashboard')
 @section('content')
     <div class="space-y-6">
-        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
-            <h1 class="text-2xl font-bold text-foreground mb-3 sm:mb-0">Dashboard</h1>
+        <div class="flex flex-row items-center justify-between mb-4 flex-wrap gap-3">
+            <h1 class="text-2xl font-bold text-foreground">Dashboard</h1>
         
             <div class="flex flex-wrap justify-end gap-3">
                 <a href="{{ route('dashboard') }}"
-                    class="inline-flex items-center px-6 py-2 border border-border bg-background text-foreground rounded-lg hover:bg-muted/50 transition-colors">
-                    <x-ui.icon name="refresh" class="w-4 h-4 mr-2" />
-                    <span>Perbarui</span>
+                    class="inline-flex items-center justify-center px-3 sm:px-6 py-2 border border-border bg-background text-foreground rounded-lg hover:bg-muted/50 transition-colors">
+                    <x-ui.icon name="refresh" class="w-4 h-4 mr-0 sm:mr-2" />
+                    <span class="hidden sm:inline">Perbarui</span>
                 </a>
             </div>
         </div>
+        
+        
 
         <!-- Aksi Cepat -->
         <div class="bg-card rounded-lg shadow-sm border border-border p-6">
@@ -74,7 +76,7 @@
         </div>
 
         <!-- Charts -->
-        {{-- <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+        <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
             <div class="bg-card rounded-lg shadow-sm border border-border p-6">
                 <h3 class="text-lg font-semibold text-card-foreground mb-2">Tren Kehadiran Mingguan</h3>
                 <p class="text-sm text-muted-foreground mb-4">Check-in dalam 7 hari terakhir</p>
@@ -98,7 +100,7 @@
                     <canvas id="dailyActivityChart"></canvas>
                 </div>
             </div>
-        </div> --}}
+        </div>
 
         <!-- Check-in Terbaru -->
         <div class="grid grid-cols-1 lg:grid-cols-1 gap-6">
@@ -133,96 +135,107 @@
     @push('scripts')
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // Debug: Log chart data
+            console.log('Charts data:', @json($charts));
+            console.log('Weekly trend:', @json($charts['weekly_trend']));
+            console.log('Member distribution:', @json($charts['member_distribution']));
+            console.log('Daily activity:', @json($charts['daily_activity']));
             // Weekly Trend Chart
-            const weeklyTrendCtx = document.getElementById('weeklyTrendChart').getContext('2d');
-            new Chart(weeklyTrendCtx, {
-                type: 'line',
-                data: {
-                    labels: @json($charts['weekly_trend']['labels'] ?? []),
-                    datasets: [{
-                        label: 'Check-in',
-                        data: @json($charts['weekly_trend']['data'] ?? []),
-                        borderColor: '#10B981',
-                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                        borderWidth: 2,
-                        fill: true,
-                        tension: 0.4
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: false
-                        }
+            const weeklyTrendCtx = document.getElementById('weeklyTrendChart');
+            if (weeklyTrendCtx) {
+                const weeklyTrendChart = new Chart(weeklyTrendCtx.getContext('2d'), {
+                    type: 'line',
+                    data: {
+                        labels: @json($charts['weekly_trend']['labels']),
+                        datasets: [{
+                            label: 'Check-in',
+                            data: @json($charts['weekly_trend']['data']),
+                            borderColor: '#10B981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.4
+                        }]
                     },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            grid: {
-                                color: 'rgba(0, 0, 0, 0.1)'
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
                             }
                         },
-                        x: {
-                            grid: {
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                grid: {
+                                    color: 'rgba(0, 0, 0, 0.1)'
+                                }
+                            },
+                            x: {
+                                grid: {
+                                    display: false
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Member Distribution Chart
+            const memberDistCtx = document.getElementById('memberDistributionChart');
+            if (memberDistCtx) {
+                new Chart(memberDistCtx.getContext('2d'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: @json($charts['member_distribution']['labels']),
+                        datasets: [{
+                            data: @json($charts['member_distribution']['data']),
+                            backgroundColor: @json($charts['member_distribution']['colors']),
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    padding: 20,
+                                    usePointStyle: true
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Daily Activity Chart
+            const dailyActivityCtx = document.getElementById('dailyActivityChart');
+            if (dailyActivityCtx) {
+                const dailyData = @json($charts['daily_activity']);
+                new Chart(dailyActivityCtx.getContext('2d'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Tercapai', 'Sisa'],
+                        datasets: [{
+                            data: [dailyData.current || 0, Math.max(0, (dailyData.target || 100) - (dailyData.current || 0))],
+                            backgroundColor: ['#10B981', '#E5E7EB'],
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
                                 display: false
                             }
                         }
                     }
-                }
-            });
-
-            // Member Distribution Chart
-            const memberDistCtx = document.getElementById('memberDistributionChart').getContext('2d');
-            new Chart(memberDistCtx, {
-                type: 'doughnut',
-                data: {
-                    labels: @json($charts['member_distribution']['labels'] ?? []),
-                    datasets: [{
-                        data: @json($charts['member_distribution']['data'] ?? []),
-                        backgroundColor: @json($charts['member_distribution']['colors'] ?? []),
-                        borderWidth: 0
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                            labels: {
-                                padding: 20,
-                                usePointStyle: true
-                            }
-                        }
-                    }
-                }
-            });
-
-            // Daily Activity Chart
-            const dailyActivityCtx = document.getElementById('dailyActivityChart').getContext('2d');
-            const dailyData = @json($charts['daily_activity'] ?? []);
-            new Chart(dailyActivityCtx, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Tercapai', 'Sisa'],
-                    datasets: [{
-                        data: [dailyData.current || 0, Math.max(0, (dailyData.target || 100) - (dailyData.current || 0))],
-                        backgroundColor: ['#10B981', '#E5E7EB'],
-                        borderWidth: 0
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: false
-                        }
-                    }
-                }
-            });
+                });
+            }
         });
     </script>
     @endpush

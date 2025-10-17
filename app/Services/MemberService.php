@@ -7,18 +7,21 @@ namespace App\Services;
 use App\Models\Member;
 use Carbon\Carbon;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class MemberService
 {
     public function __construct(
         private PaymentService $paymentService,
-        private MembershipService $membershipService
+        private MembershipService $membershipService,
+        private DashboardService $dashboardService
     ) {}
 
     public function getAllMembers(array $filters = []): LengthAwarePaginator
     {
-        $query = Member::with(['membership', 'attendances'])
+        $query = Member::select('id', 'member_code', 'name', 'email', 'phone', 'status', 'exp_date', 'last_check_in', 'total_visits', 'created_at')
+            ->with(['membership', 'attendances'])
             ->orderBy('created_at', 'desc');
 
         if (! empty($filters['search'])) {
@@ -32,7 +35,20 @@ class MemberService
         }
 
         if (! empty($filters['status'])) {
-            $query->where('status', $filters['status']);
+            if ($filters['status'] === 'INACTIVE') {
+                // INACTIVE includes both manually suspended AND expired members
+                $query->where(function ($q) {
+                    $q->where('status', 'INACTIVE')
+                        ->orWhere(function ($sq) {
+                            $sq->where('status', 'ACTIVE')
+                                ->whereDate('exp_date', '<', Carbon::today());
+                        });
+                });
+            } else {
+                // ACTIVE means active and not expired
+                $query->where('status', $filters['status'])
+                    ->whereDate('exp_date', '>=', Carbon::today());
+            }
         }
 
         return $query->paginate(10);
@@ -72,6 +88,12 @@ class MemberService
             $amount = $this->membershipService->getMembershipPrice($membershipDuration);
             $this->paymentService->createPayment($member, $amount, $paymentMethod, $paymentNotes);
 
+            // Invalidate member caches
+            CacheService::invalidateMemberCaches();
+
+            // Invalidate dashboard cache
+            $this->dashboardService->invalidateDashboardCache();
+
             return $member->fresh(['membership', 'payments']);
         });
     }
@@ -81,28 +103,11 @@ class MemberService
         return DB::transaction(function () use ($id, $data) {
             $member = Member::findOrFail($id);
 
-            // Extract membership dan payment data
-            $membershipDuration = (int) $data['membership_duration'];
-            $paymentMethod = $data['payment_method'];
-            $paymentNotes = $data['payment_notes'] ?? null;
-
-            // Calculate new exp_date by extending current membership
-            $currentExpDate = $member->exp_date;
-            $newExpDate = Carbon::parse($currentExpDate)->addMonths($membershipDuration)->toDateString();
-            $data['exp_date'] = $newExpDate;
-
-            // Remove non-member fields dari data
-            unset($data['membership_duration'], $data['payment_method'], $data['payment_notes']);
-
-            // Update member
+            // Update member data only (no membership extension logic)
             $member->update($data);
 
-            // Create new membership record for extension
-            $this->membershipService->createMembershipExtension($member, $membershipDuration);
-
-            // Create new payment using PaymentService
-            $amount = $this->membershipService->getMembershipPrice($membershipDuration);
-            $this->paymentService->createPayment($member, $amount, $paymentMethod, $paymentNotes);
+            // Invalidate member caches
+            CacheService::invalidateMemberCaches();
 
             return $member->fresh(['membership', 'payments']);
         });
@@ -120,6 +125,9 @@ class MemberService
         $member = Member::findOrFail($id);
         $member->update(['status' => \App\Enums\MemberStatus::INACTIVE]);
 
+        // Invalidate member caches
+        CacheService::invalidateMemberCaches();
+
         return $member->fresh();
     }
 
@@ -128,7 +136,58 @@ class MemberService
         $member = Member::findOrFail($id);
         $member->update(['status' => \App\Enums\MemberStatus::ACTIVE]);
 
+        // Invalidate member caches
+        CacheService::invalidateMemberCaches();
+
         return $member->fresh();
+    }
+
+    public function extendMembership(int $memberId, int $duration, string $paymentMethod, ?string $paymentNotes = null): Member
+    {
+        return DB::transaction(function () use ($memberId, $duration, $paymentMethod, $paymentNotes) {
+            $member = Member::findOrFail($memberId);
+
+            // Calculate new exp_date by extending current membership
+            $currentExpDate = $member->exp_date;
+            $newExpDate = Carbon::parse($currentExpDate)->addMonths($duration)->toDateString();
+
+            // Update member's exp_date
+            $member->update(['exp_date' => $newExpDate]);
+
+            // Create new membership record for extension
+            $this->membershipService->createMembershipExtension($member, $duration);
+
+            // Create new payment using PaymentService
+            $amount = $this->membershipService->getMembershipPrice($duration);
+            $this->paymentService->createPayment($member, $amount, $paymentMethod, $paymentNotes);
+
+            // Invalidate member caches
+            CacheService::invalidateMemberCaches();
+
+            // Invalidate dashboard cache
+            $this->dashboardService->invalidateDashboardCache();
+
+            return $member->fresh(['membership', 'payments']);
+        });
+    }
+
+    public function searchMembers(string $query): array
+    {
+        $cacheKey = CacheService::getMemberSearchKey($query, 20);
+
+        return Cache::remember($cacheKey, CacheService::CACHE_TTL_MEDIUM, function () use ($query) {
+            return Member::select('id', 'member_code', 'name', 'email', 'exp_date', 'status')
+                ->where(function ($q) use ($query) {
+                    $q->where('name', 'like', "%{$query}%")
+                        ->orWhere('member_code', 'like', "%{$query}%")
+                        ->orWhere('email', 'like', "%{$query}%");
+                })
+                ->where('status', \App\Enums\MemberStatus::ACTIVE)
+                ->orderBy('name')
+                ->limit(20)
+                ->get()
+                ->toArray();
+        });
     }
 
     public function getMemberStats(Member $member): array
