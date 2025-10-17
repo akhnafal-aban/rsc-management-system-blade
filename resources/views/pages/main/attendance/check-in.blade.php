@@ -1,18 +1,6 @@
 @extends('layouts.app')
 @section('title', 'Check In Member')
 @section('content')
-    <!-- Success/Error Messages -->
-    @if (session('success'))
-        <div id="alert-message" class="bg-green-500 text-white p-4 rounded-lg mb-6">
-            {{ session('success') }}
-        </div>
-    @endif
-
-    @if (session('error'))
-        <div id="alert-message" class="bg-red-500 text-white p-4 rounded-lg mb-6">
-            {{ session('error') }}
-        </div>
-    @endif
 
     <!-- Check-In Member Table -->
     <div class="bg-card text-card-foreground rounded-lg shadow-sm border border-border p-6">
@@ -230,16 +218,4 @@
         @endif
     </div>
 
-    <script>
-        // Auto-hide alert messages after 5 seconds
-        document.addEventListener('DOMContentLoaded', () => {
-            const alert = document.getElementById('alert-message');
-            if (alert) {
-                setTimeout(() => {
-                    alert.classList.add('opacity-0', 'transition-opacity', 'duration-500');
-                    setTimeout(() => alert.remove(), 500); // remove from DOM after fade-out
-                }, 5000);
-            }
-        });
-    </script>
 @endsection

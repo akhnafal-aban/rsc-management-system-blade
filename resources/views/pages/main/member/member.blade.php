@@ -31,7 +31,7 @@
 
         <form method="GET" action="{{ route('member.index') }}"
             class="bg-card p-4 rounded-lg shadow-sm border border-border">
-            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-2">
 
                 {{-- Kolom Pencarian --}}
                 <div class="flex-1 relative w-full">
@@ -43,9 +43,9 @@
                 </div>
 
                 {{-- Filter dan Tombol Submit --}}
-                <div class="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
+                <div class="flex flex-col sm:flex-row gap-2 sm:gap-2 w-full sm:w-auto">
                     <select name="status"
-                        class="w-full sm:w-auto px-4 py-2 bg-input border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent">
+                        class="w-full sm:w-auto px-4 py-2 mb-1 bg-input border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent">
                         <option value="">Semua Status</option>
                         <option value="ACTIVE" {{ request('status') === 'ACTIVE' ? 'selected' : '' }}>Aktif</option>
                         <option value="INACTIVE" {{ request('status') === 'INACTIVE' ? 'selected' : '' }}>Tidak Aktif
@@ -55,15 +55,15 @@
                     <button type="submit"
                         class="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-sm">
                         <x-ui.icon name="search" class="w-4 h-4 sm:mr-1" />
-                        <span class="hidden sm:inline">Cari</span>
+                        <span class="ml-2">Cari</span>
                     </button>
                 </div>
             </div>
         </form>
 
-        <div class="bg-card rounded-lg shadow-sm border border-border overflow-hidden">
+        <div class="rounded-lg shadow-sm overflow-hidden">
             {{-- TABLE VIEW - Desktop --}}
-            <div class="hidden sm:block overflow-x-auto">
+            <div class="bg-card hidden sm:block overflow-x-auto">
                 <table class="min-w-full divide-y divide-border">
                     <thead class="bg-muted/50">
                         <tr>
@@ -193,84 +193,128 @@
             </div>
 
             {{-- CARD VIEW - Mobile --}}
-            <div class="block sm:hidden divide-y divide-border">
+            <div class="block sm:hidden">
                 @forelse ($members as $member)
-                    @php $isExpired = $member->exp_date < now()->toDateString(); @endphp
-                    <div class="p-3">
-                        <div class="flex items-center justify-between mb-1">
+                    @php
+                        $isExpired = $member->exp_date < now()->toDateString();
+                        $statusColor = $isExpired ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700';
+                        $statusText =
+                            $member->status->value === 'ACTIVE'
+                                ? ($isExpired
+                                    ? 'Aktif (Expired)'
+                                    : 'Aktif')
+                                : 'Tidak Aktif';
+                    @endphp
+
+                    <div class="mb-3 rounded-lg border border-border bg-card shadow-sm transition-all hover:shadow-md">
+                        <!-- Header Card - Center Aligned -->
+                        <div class="text-center p-3 border-b border-border bg-muted/30">
                             <h4 class="font-semibold text-sm">{{ $member->name }}</h4>
-                            <span class="text-[11px] {{ $isExpired ? 'text-red-500' : 'text-green-500' }}">
-                                {{ \Carbon\Carbon::parse($member->exp_date)->format('d M Y') }}
-                            </span>
-                        </div>
-                        <p class="text-xs text-muted-foreground mb-1">ID: {{ $member->member_code }}</p>
-                        <p class="text-xs text-muted-foreground mb-2">Check-in Terakhir:
-                            {{ $member->last_check_in ? $member->last_check_in->format('d/m/Y') : '-' }}</p>
-
-                        <div class="flex justify-between items-center text-xs mb-2">
-                            <span class="{{ $isExpired ? 'text-red-500' : 'text-green-600' }}">
-                                {{ $member->status->value === 'ACTIVE' ? ($isExpired ? 'Aktif (Expired)' : 'Aktif') : 'Tidak Aktif' }}
-                            </span>
-                            <span class="text-muted-foreground">Kunjungan: {{ $member->total_visits }}</span>
+                            <p class="text-xs text-muted-foreground mt-0.5">ID: {{ $member->member_code }}</p>
                         </div>
 
-                        <div class="flex flex-wrap justify-end gap-1 pt-1">
-                            {{-- Semua routes tetap sama persis --}}
-                            <a href="{{ route('member.show', $member) }}"
-                                class="px-3 py-1 text-[11px] border border-border rounded bg-background hover:bg-muted/50 transition-colors">
-                                <x-ui.icon name="eye" class="w-3 h-3" />
-                            </a>
-                            <a href="{{ route('member.edit', $member) }}"
-                                class="px-3 py-1 text-[11px] border border-border rounded bg-background hover:bg-muted/50 transition-colors">
-                                <x-ui.icon name="edit" class="w-3 h-3" />
-                            </a>
-                            @if ($member->status->value === 'ACTIVE')
-                                <form action="{{ route('member.suspend', $member) }}" method="POST" class="inline">
+                        <!-- Content Card -->
+                        <div class="p-3">
+                            <!-- Status & Exp Date - Full Width -->
+                            <div class="grid grid-cols-2 gap-2 mb-3">
+                                <div class="bg-muted/25 rounded p-2">
+                                    <p class="text-xs text-muted-foreground mb-0.5">Status</p>
+                                    <p class="text-xs font-medium {{ $isExpired ? 'text-red-200' : 'text-green-200' }}">
+                                        {{ $statusText }}
+                                    </p>
+                                </div>
+                                <div class="bg-muted/25 rounded p-2">
+                                    <p class="text-xs text-muted-foreground mb-0.5">Expired</p>
+                                    <p class="text-xs font-medium {{ $isExpired ? 'text-red-200' : 'text-green-200' }}">
+                                        {{ \Carbon\Carbon::parse($member->exp_date)->format('d M Y') }}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <!-- Info Section -->
+                            <div class="grid grid-cols-2 gap-2 mb-3">
+                                <div class="bg-muted/25 rounded p-2">
+                                    <p class="text-xs text-muted-foreground mb-0.5">Check-in Terakhir</p>
+                                    <p class="text-xs font-medium">
+                                        {{ $member->last_check_in ? $member->last_check_in->format('d/m/Y') : '-' }}</p>
+                                </div>
+                                <div class="bg-muted/25 rounded p-2">
+                                    <p class="text-xs text-muted-foreground mb-0.5">Total Kunjungan</p>
+                                    <p class="text-xs font-medium">{{ $member->total_visits }}</p>
+                                </div>
+                            </div>
+
+                            <!-- Action Buttons - Full Width with Original Colors -->
+                            <div class="flex justify-between gap-1 pt-2 border-t border-border">
+                                <a href="{{ route('member.show', $member) }}"
+                                    class="flex-1 flex justify-center items-center py-2 text-[11px] border border-border rounded bg-background hover:bg-muted/50 transition-colors"
+                                    title="Lihat Detail">
+                                    <x-ui.icon name="eye" class="w-3 h-3" />
+                                </a>
+                                <a href="{{ route('member.edit', $member) }}"
+                                    class="flex-1 flex justify-center items-center py-2 text-[11px] border border-border rounded bg-background hover:bg-muted/50 transition-colors"
+                                    title="Edit">
+                                    <x-ui.icon name="edit" class="w-3 h-3" />
+                                </a>
+                                @if ($member->status->value === 'ACTIVE')
+                                    <form action="{{ route('member.suspend', $member) }}" method="POST"
+                                        class="inline flex-1">
+                                        @csrf
+                                        <button type="submit"
+                                            class="w-full flex justify-center items-center py-2 text-[11px] border border-border rounded bg-background hover:bg-muted/50 transition-colors"
+                                            title="Nonaktifkan"
+                                            onclick="return confirm('Apakah Anda yakin ingin menonaktifkan member ini?')">
+                                            <x-ui.icon name="user-x" class="w-3 h-3" />
+                                        </button>
+                                    </form>
+                                @else
+                                    <form action="{{ route('member.activate', $member) }}" method="POST"
+                                        class="inline flex-1">
+                                        @csrf
+                                        <button type="submit"
+                                            class="w-full flex justify-center items-center py-2 text-[11px] border border-border rounded bg-background hover:bg-muted/50 transition-colors"
+                                            title="Aktifkan"
+                                            onclick="return confirm('Apakah Anda yakin ingin mengaktifkan member ini?')">
+                                            <x-ui.icon name="user-check" class="w-3 h-3" />
+                                        </button>
+                                    </form>
+                                @endif
+                                <form action="{{ route('member.destroy', $member) }}" method="POST"
+                                    class="inline flex-1">
                                     @csrf
+                                    @method('DELETE')
                                     <button type="submit"
-                                        class="px-3 py-1 text-[11px] border border-border rounded bg-background hover:bg-muted/50 transition-colors"
-                                        onclick="return confirm('Apakah Anda yakin ingin menonaktifkan member ini?')">
-                                        <x-ui.icon name="user-x" class="w-3 h-3" />
+                                        class="w-full flex justify-center items-center py-2 text-[11px] border border-border rounded bg-background text-destructive hover:bg-destructive/10 transition-colors"
+                                        title="Hapus"
+                                        onclick="return confirm('Apakah Anda yakin ingin menghapus member ini?')">
+                                        <x-ui.icon name="trash" class="w-3 h-3" />
                                     </button>
                                 </form>
-                            @else
-                                <form action="{{ route('member.activate', $member) }}" method="POST" class="inline">
-                                    @csrf
-                                    <button type="submit"
-                                        class="px-3 py-1 text-[11px] border border-border rounded bg-background hover:bg-muted/50 transition-colors"
-                                        onclick="return confirm('Apakah Anda yakin ingin mengaktifkan member ini?')">
-                                        <x-ui.icon name="user-check" class="w-3 h-3" />
-                                    </button>
-                                </form>
-                            @endif
-                            <form action="{{ route('member.destroy', $member) }}" method="POST" class="inline">
-                                @csrf
-                                @method('DELETE')
-                                <button type="submit"
-                                    class="px-3 py-1 text-[11px] border border-border rounded bg-background text-destructive hover:bg-destructive/10 transition-colors"
-                                    onclick="return confirm('Apakah Anda yakin ingin menghapus member ini?')">
-                                    <x-ui.icon name="trash" class="w-3 h-3" />
-                                </button>
-                            </form>
+                            </div>
                         </div>
                     </div>
                 @empty
-                    <div class="text-center py-8 text-muted-foreground">
+                    <div
+                        class="text-center py-8 text-muted-foreground bg-muted/25 rounded-lg border border-dashed border-border">
                         <x-ui.icon name="users" class="w-8 h-8 mx-auto mb-2 text-muted-foreground/50" />
                         <p>Tidak ada member yang ditemukan.</p>
                     </div>
                 @endforelse
             </div>
+
+            <!-- Pagination -->
+            @if ($members->hasPages())
+                <div
+                    class="flex flex-col sm:flex-row items-center justify-between gap-2 mt-4 text-sm text-muted-foreground">
+                    <div class="bg-muted/20 rounded-lg px-3 py-2">
+                        Menampilkan {{ $members->firstItem() }} sampai {{ $members->lastItem() }} dari
+                        {{ $members->total() }} member
+                    </div>
+                    <div class="bg-muted/20 rounded-lg px-3 py-2">
+                        {{ $members->appends(request()->query())->links() }}
+                    </div>
+                </div>
+            @endif
+
         </div>
-
-        {{-- Pagination --}}
-        @if ($members->hasPages())
-            <div class="flex flex-col sm:flex-row items-center justify-between gap-2 mt-4 text-sm text-muted-foreground">
-                <div>Menampilkan {{ $members->firstItem() }} sampai {{ $members->lastItem() }} dari
-                    {{ $members->total() }} member</div>
-                <div>{{ $members->appends(request()->query())->links() }}</div>
-            </div>
-        @endif
-
-    </div>
-@endsection
+    @endsection

@@ -5,7 +5,6 @@
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
                 <h1 class="text-xl sm:text-2xl font-bold text-foreground">Tambah Member Baru</h1>
-                <p class="text-muted-foreground mt-1 text-sm sm:text-base">Masukkan informasi member untuk mendaftarkan anggota baru</p>
             </div>
             <a href="{{ route('member.index') }}" 
                 class="inline-flex items-center justify-center px-4 py-2 border border-border bg-background text-foreground rounded-lg hover:bg-muted/50 transition-colors w-full sm:w-auto">
@@ -14,21 +13,6 @@
             </a>
         </div>
 
-        @if ($errors->any())
-            <div class="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
-                <div class="flex">
-                    <x-ui.icon name="alert-circle" class="w-5 h-5 text-destructive mr-3 mt-0.5" />
-                    <div>
-                        <h3 class="text-sm font-medium text-destructive">Terdapat kesalahan:</h3>
-                        <ul class="mt-2 text-sm text-destructive list-disc list-inside">
-                            @foreach ($errors->all() as $error)
-                                <li>{{ $error }}</li>
-                            @endforeach
-                        </ul>
-                    </div>
-                </div>
-            </div>
-        @endif
 
         <form action="{{ route('member.store') }}" method="POST" class="space-y-6">
             @csrf

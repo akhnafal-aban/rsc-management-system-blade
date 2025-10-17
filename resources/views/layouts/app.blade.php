@@ -20,6 +20,7 @@
 <body class="h-screen bg-background text-foreground">
     @include('components.navigation.mobile-navbar')
     @include('components.navigation.sidebar')
+    @include('components.ui.session-notifications')
     
     <div class="main-content flex flex-col flex-1 transition-all duration-500 ease-in-out">
         <main class="flex-1 overflow-y-auto">
