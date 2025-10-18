@@ -24,25 +24,41 @@ class AttendanceService
 
     public function getAttendancesByDate(string $date, int $perPage = 10, ?string $search = null, ?string $statusFilter = null): LengthAwarePaginator
     {
-        $query = Attendance::with(['creator'])
-            ->today($date);
+        // Optimized query dengan JOIN untuk menghindari N+1 problem
+        $query = DB::table('attendances')
+            ->leftJoin('members', 'attendances.member_id', '=', 'members.id')
+            ->leftJoin('users as creators', 'attendances.created_by', '=', 'creators.id')
+            ->select([
+                'attendances.id',
+                'attendances.member_id',
+                'attendances.check_in_time',
+                'attendances.check_out_time',
+                'attendances.created_by',
+                'attendances.updated_by',
+                'attendances.created_at',
+                'attendances.updated_at',
+                'members.member_code',
+                'members.name as member_name',
+                'creators.name as creator_name',
+            ])
+            ->whereDate('attendances.check_in_time', $date);
 
         // Apply search filter
         if ($search) {
-            $query->whereHas('member', function ($q) use ($search) {
-                $q->where('name', 'LIKE', "%{$search}%")
-                    ->orWhere('member_code', 'LIKE', "%{$search}%");
+            $query->where(function ($q) use ($search) {
+                $q->where('members.name', 'LIKE', "%{$search}%")
+                    ->orWhere('members.member_code', 'LIKE', "%{$search}%");
             });
         }
 
         // Apply status filter
         if ($statusFilter === 'checkin') {
-            $query->checkedIn();
+            $query->whereNull('attendances.check_out_time');
         } elseif ($statusFilter === 'checkout') {
-            $query->checkedOut();
+            $query->whereNotNull('attendances.check_out_time');
         }
 
-        return $query->orderBy('check_in_time', 'desc')->paginate($perPage);
+        return $query->orderBy('attendances.check_in_time', 'desc')->paginate($perPage);
     }
 
     public function searchMembers(string $query): Collection
@@ -50,7 +66,17 @@ class AttendanceService
         $cacheKey = CacheService::getMemberSearchKey($query, 10);
 
         return Cache::remember($cacheKey, CacheService::CACHE_TTL_MEDIUM, function () use ($query) {
-            return Member::active()
+            $results = DB::table('members')
+                ->select([
+                    'id',
+                    'member_code',
+                    'name',
+                    'email',
+                    'phone',
+                    'status',
+                    'exp_date',
+                ])
+                ->where('status', \App\Enums\MemberStatus::ACTIVE)
                 ->where(function ($q) use ($query) {
                     $q->where('name', 'LIKE', "%{$query}%")
                         ->orWhere('member_code', 'LIKE', "%{$query}%")
@@ -59,15 +85,34 @@ class AttendanceService
                 ->orderBy('name')
                 ->limit(10)
                 ->get();
+
+            // Convert to Eloquent Collection untuk kompatibilitas
+            return Member::hydrate($results->toArray());
         });
     }
 
     public function getMemberById(string $memberId): ?Member
     {
-        // Try to find by member_code first, then by id
-        return Member::where('member_code', $memberId)
+        // Optimized query dengan single database call
+        $result = DB::table('members')
+            ->select([
+                'id',
+                'member_code',
+                'name',
+                'email',
+                'phone',
+                'status',
+                'exp_date',
+                'last_check_in',
+                'total_visits',
+                'created_at',
+                'updated_at',
+            ])
+            ->where('member_code', $memberId)
             ->orWhere('id', $memberId)
             ->first();
+
+        return $result ? Member::hydrate([$result])->first() : null;
     }
 
     public function searchActiveMembers(?string $search = null, int $perPage = 10): LengthAwarePaginator
@@ -77,33 +122,33 @@ class AttendanceService
         return Cache::remember($cacheKey, CacheService::CACHE_TTL_SHORT, function () use ($search, $perPage) {
             $today = Carbon::today();
 
-            $query = Member::select([
-                'id',
-                'member_code',
-                'name',
-                'exp_date',
-                'status',
-                // Subquery untuk cek apakah member sudah check-in hari ini
-                DB::raw("EXISTS(
-                    SELECT 1 FROM attendances 
-                    WHERE attendances.member_id = members.id 
-                    AND attendances.check_in_time >= '{$today->startOfDay()}' 
-                    AND attendances.check_in_time <= '{$today->endOfDay()}'
-                    AND attendances.check_out_time IS NULL
-                ) as has_checked_in_today"),
-            ]);
+            // Optimized query dengan proper JOIN instead of raw SQL
+            $query = DB::table('members')
+                ->leftJoin('attendances', function ($join) use ($today) {
+                    $join->on('members.id', '=', 'attendances.member_id')
+                        ->whereDate('attendances.check_in_time', $today)
+                        ->whereNull('attendances.check_out_time');
+                })
+                ->select([
+                    'members.id',
+                    'members.member_code',
+                    'members.name',
+                    'members.exp_date',
+                    'members.status',
+                    DB::raw('CASE WHEN attendances.id IS NOT NULL THEN 1 ELSE 0 END as has_checked_in_today'),
+                ]);
 
             if (! empty($search = trim($search ?? ''))) {
                 $query->where(function ($q) use ($search) {
-                    $q->where('member_code', 'like', "%{$search}%")
-                        ->orWhere('name', 'like', "%{$search}%");
+                    $q->where('members.member_code', 'like', "%{$search}%")
+                        ->orWhere('members.name', 'like', "%{$search}%");
                 });
             }
 
             return $query
-                ->orderByRaw("CASE WHEN status = 'ACTIVE' THEN 1 ELSE 2 END") // ACTIVE first, then INACTIVE
-                ->orderBy('member_code')
-                ->orderBy('name')
+                ->orderByRaw("CASE WHEN members.status = 'ACTIVE' THEN 1 ELSE 2 END") // ACTIVE first, then INACTIVE
+                ->orderBy('members.member_code')
+                ->orderBy('members.name')
                 ->paginate($perPage)
                 ->withQueryString();
         });
@@ -111,16 +156,32 @@ class AttendanceService
 
     public function canCheckIn(Member $member): array
     {
-        $todayAttendance = Attendance::byMember($member->id)
-            ->today()
-            ->checkedIn()
+        $today = Carbon::today();
+
+        // Single optimized query untuk cek attendance hari ini
+        $todayAttendance = DB::table('attendances')
+            ->select([
+                'id',
+                'member_id',
+                'check_in_time',
+                'check_out_time',
+                'created_by',
+                'updated_by',
+                'created_at',
+                'updated_at',
+            ])
+            ->where('member_id', $member->id)
+            ->whereDate('check_in_time', $today)
+            ->whereNull('check_out_time')
             ->first();
 
         if ($todayAttendance) {
+            $attendance = Attendance::hydrate([$todayAttendance])->first();
+
             return [
                 'can_checkin' => false,
                 'can_checkout' => true,
-                'attendance' => $todayAttendance,
+                'attendance' => $attendance,
                 'message' => 'Member sudah check-in hari ini dan belum check-out',
             ];
         }
@@ -134,7 +195,7 @@ class AttendanceService
             ];
         }
 
-        if ($member->exp_date < Carbon::today()) {
+        if ($member->exp_date < $today) {
             return [
                 'can_checkin' => false,
                 'can_checkout' => false,
@@ -220,7 +281,57 @@ class AttendanceService
 
     public function getAttendanceById(string $attendanceId): ?Attendance
     {
-        return Attendance::with(['member', 'creator'])->find($attendanceId);
+        // Optimized query dengan JOIN untuk menghindari N+1 problem
+        $result = DB::table('attendances')
+            ->leftJoin('members', 'attendances.member_id', '=', 'members.id')
+            ->leftJoin('users as creators', 'attendances.created_by', '=', 'creators.id')
+            ->select([
+                'attendances.id',
+                'attendances.member_id',
+                'attendances.check_in_time',
+                'attendances.check_out_time',
+                'attendances.created_by',
+                'attendances.updated_by',
+                'attendances.created_at',
+                'attendances.updated_at',
+                'members.member_code',
+                'members.name as member_name',
+                'members.email as member_email',
+                'members.phone as member_phone',
+                'members.status as member_status',
+                'members.exp_date as member_exp_date',
+                'creators.name as creator_name',
+            ])
+            ->where('attendances.id', $attendanceId)
+            ->first();
+
+        if (! $result) {
+            return null;
+        }
+
+        // Convert to Eloquent model dengan relationships
+        $attendance = Attendance::hydrate([$result])->first();
+
+        // Manually set relationships untuk kompatibilitas
+        $member = new Member([
+            'id' => $result->member_id,
+            'member_code' => $result->member_code,
+            'name' => $result->member_name,
+            'email' => $result->member_email,
+            'phone' => $result->member_phone,
+            'status' => $result->member_status,
+            'exp_date' => $result->member_exp_date,
+        ]);
+
+        $creator = new \App\Models\User([
+            'id' => $result->created_by,
+            'name' => $result->creator_name,
+        ]);
+
+        $attendance->setRelation('member', $member);
+        $attendance->setRelation('creator', $creator);
+
+        return $attendance;
     }
 
     public function exportTodayAttendances(): array
@@ -230,22 +341,35 @@ class AttendanceService
 
     public function exportAttendancesByDate(string $date): array
     {
-        $attendances = Attendance::with(['creator'])
-            ->today($date)
-            ->orderBy('check_in_time', 'desc')
+        // Optimized query dengan single JOIN untuk export
+        $attendances = DB::table('attendances')
+            ->leftJoin('members', 'attendances.member_id', '=', 'members.id')
+            ->leftJoin('users as creators', 'attendances.created_by', '=', 'creators.id')
+            ->select([
+                'attendances.check_in_time',
+                'attendances.check_out_time',
+                'members.member_code',
+                'members.name as member_name',
+                'creators.name as creator_name',
+            ])
+            ->whereDate('attendances.check_in_time', $date)
+            ->orderBy('attendances.check_in_time', 'desc')
             ->get();
 
         $data = [];
         $data[] = ['Member ID', 'Nama', 'Waktu Check-in', 'Waktu Check-out', 'Staff', 'Status'];
 
         foreach ($attendances as $attendance) {
+            $checkInTime = Carbon::parse($attendance->check_in_time);
+            $checkOutTime = $attendance->check_out_time ? Carbon::parse($attendance->check_out_time) : null;
+
             $data[] = [
-                $attendance->member->member_code,
-                $attendance->member->name,
-                $attendance->check_in_time->format('H:i:s'),
-                $attendance->check_out_time ? $attendance->check_out_time->format('H:i:s') : '-',
-                $attendance->creator->name ?? 'System',
-                $attendance->check_out_time ? 'Check Out' : 'Check In',
+                $attendance->member_code,
+                $attendance->member_name,
+                $checkInTime->format('H:i:s'),
+                $checkOutTime ? $checkOutTime->format('H:i:s') : '-',
+                $attendance->creator_name ?? 'System',
+                $checkOutTime ? 'Check Out' : 'Check In',
             ];
         }
 
