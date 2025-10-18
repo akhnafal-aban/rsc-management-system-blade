@@ -53,8 +53,7 @@
                     <tbody class="bg-card divide-y divide-border">
                         @forelse ($members as $member)
                             @php
-                                $isActive =
-                                    $member->status->value === 'ACTIVE' && $member->exp_date >= now()->toDateString();
+                                $isActive = $member->status === 'ACTIVE' && $member->exp_date >= now()->toDateString();
                                 $isExpired = $member->exp_date < now()->toDateString();
                                 $hasCheckedInToday = $member->has_checked_in_today ?? false;
                             @endphp
@@ -64,7 +63,7 @@
                                 <td class="px-6 py-4 text-sm">{{ $member->name }}</td>
                                 <td class="px-6 py-4">
                                     <div class="flex flex-col gap-1">
-                                        @if ($member->status->value === 'ACTIVE')
+                                        @if ($member->status === 'ACTIVE')
                                             @if ($isExpired)
                                                 <span
                                                     class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">
@@ -133,7 +132,7 @@
             <div class="block sm:hidden space-y-4">
                 @forelse ($members as $member)
                     @php
-                        $isActive = $member->status->value === 'ACTIVE' && $member->exp_date >= now()->toDateString();
+                        $isActive = $member->status === 'ACTIVE' && $member->exp_date >= now()->toDateString();
                         $isExpired = $member->exp_date < now()->toDateString();
                         $hasCheckedInToday = $member->has_checked_in_today ?? false;
                     @endphp
@@ -151,7 +150,7 @@
 
 
                         <div class="flex flex-col gap-2 mb-3">
-                            @if ($member->status->value === 'ACTIVE')
+                            @if ($member->status === 'ACTIVE')
                                 @if ($isExpired)
                                     <span
                                         class="inline-flex items-center justify-center w-full px-2 py-0.5 rounded-full text-[11px] font-medium bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">

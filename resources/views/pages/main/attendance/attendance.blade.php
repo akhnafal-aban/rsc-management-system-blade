@@ -126,13 +126,13 @@
                     <tbody class="bg-card divide-y divide-border">
                         @forelse ($attendances as $attendance)
                             <tr class="hover:bg-muted/50 transition-colors">
-                                <td class="px-6 py-4 text-sm font-medium">{{ $attendance->member->member_code }}</td>
-                                <td class="px-6 py-4 text-sm">{{ $attendance->member->name }}</td>
-                                <td class="px-6 py-4 text-sm">{{ $attendance->check_in_time->format('H:i:s') }}</td>
+                                <td class="px-6 py-4 text-sm font-medium">{{ $attendance->member_code }}</td>
+                                <td class="px-6 py-4 text-sm">{{ $attendance->member_name }}</td>
+                                <td class="px-6 py-4 text-sm">{{ \Carbon\Carbon::parse($attendance->check_in_time)->format('H:i:s') }}</td>
                                 <td class="px-6 py-4 text-sm">
-                                    {{ $attendance->check_out_time ? $attendance->check_out_time->format('H:i:s') : '-' }}
+                                    {{ $attendance->check_out_time ? \Carbon\Carbon::parse($attendance->check_out_time)->format('H:i:s') : '-' }}
                                 </td>
-                                <td class="px-6 py-4 text-sm">{{ $attendance->creator->name ?? 'System' }}</td>
+                                <td class="px-6 py-4 text-sm">{{ $attendance->creator_name ?? 'System' }}</td>
                                 <td class="px-6 py-4">
                                     @if ($attendance->check_out_time)
                                         <span
@@ -180,18 +180,18 @@
                 @forelse ($attendances as $attendance)
                     <div class="border border-border rounded-lg p-4 bg-background shadow-sm">
                         <div class="flex justify-between items-center mb-2">
-                            <span class="text-sm font-semibold">{{ $attendance->member->name }}</span>
+                            <span class="text-sm font-semibold">{{ $attendance->member_name }}</span>
                             @if ($attendance->check_out_time)
                                 <span class="text-xs px-2 py-1 rounded-full bg-chart-1/20 text-chart-1">Check Out</span>
                             @else
                                 <span class="text-xs px-2 py-1 rounded-full bg-chart-2/20 text-chart-2">Check In</span>
                             @endif
                         </div>
-                        <p class="text-xs text-muted-foreground mb-1">ID: {{ $attendance->member->member_code }}</p>
-                        <p class="text-xs mb-1">Check-in: {{ $attendance->check_in_time->format('H:i:s') }}</p>
+                        <p class="text-xs text-muted-foreground mb-1">ID: {{ $attendance->member_code }}</p>
+                        <p class="text-xs mb-1">Check-in: {{ \Carbon\Carbon::parse($attendance->check_in_time)->format('H:i:s') }}</p>
                         <p class="text-xs mb-1">Check-out:
-                            {{ $attendance->check_out_time ? $attendance->check_out_time->format('H:i:s') : '-' }}</p>
-                        <p class="text-xs text-muted-foreground mb-3">Staff: {{ $attendance->creator->name ?? 'System' }}
+                            {{ $attendance->check_out_time ? \Carbon\Carbon::parse($attendance->check_out_time)->format('H:i:s') : '-' }}</p>
+                        <p class="text-xs text-muted-foreground mb-3">Staff: {{ $attendance->creator_name ?? 'System' }}
                         </p>
 
                         @if (!$attendance->check_out_time)
