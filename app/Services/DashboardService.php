@@ -9,6 +9,7 @@ use App\Models\Member;
 use App\Models\Payment;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 class DashboardService
 {
@@ -24,36 +25,56 @@ class DashboardService
 
     private function getStats(): array
     {
-        $cacheKey = 'dashboard_stats_' . now()->format('Y-m-d-H');
+        $cacheKey = 'dashboard_stats_'.now()->format('Y-m-d-H');
 
         return Cache::remember($cacheKey, CacheService::CACHE_TTL_SHORT, function () {
             $today = Carbon::today();
-            $startOfWeek = $today->copy()->startOfWeek();
             $startOfMonth = $today->copy()->startOfMonth();
             $endOfMonth = $today->copy()->endOfMonth();
+            $startOfWeek = Carbon::now()->startOfWeek();
+            $endOfWeek = Carbon::now()->endOfWeek();
+
+            // Single optimized query untuk semua stats
+            $stats = DB::table('members')
+                ->selectRaw('
+                    COUNT(CASE WHEN status = ? THEN 1 END) as active_members,
+                    (SELECT COUNT(*) FROM attendances WHERE DATE(check_in_time) = ?) as today_checkins,
+                    (SELECT COUNT(*) FROM attendances WHERE check_in_time BETWEEN ? AND ?) as weekly_attendance,
+                    (SELECT COALESCE(SUM(amount), 0) FROM payments WHERE created_at BETWEEN ? AND ?) as monthly_revenue
+                ', [
+                    \App\Enums\MemberStatus::ACTIVE,
+                    $today->format('Y-m-d'),
+                    $startOfWeek,
+                    $endOfWeek,
+                    $startOfMonth,
+                    $endOfMonth,
+                ])
+                ->first();
+
+            $weeklyAverage = $stats->weekly_attendance > 0 ? round($stats->weekly_attendance / 7) : 0;
 
             return [
                 [
                     'title' => 'Member Aktif',
-                    'value' => Member::active()->count(),
+                    'value' => (int) $stats->active_members,
                     'change' => $this->getMemberGrowthPercentage(),
                     'icon' => 'users',
                 ],
                 [
                     'title' => 'Check-in Hari Ini',
-                    'value' => Attendance::whereDate('check_in_time', $today)->count(),
+                    'value' => (int) $stats->today_checkins,
                     'change' => $this->getTodayAttendanceChange(),
                     'icon' => 'user-check',
                 ],
                 [
                     'title' => 'Rata-rata Mingguan',
-                    'value' => $this->getWeeklyAverage(),
+                    'value' => $weeklyAverage,
                     'change' => $this->getWeeklyTrend(),
                     'icon' => 'trending-up',
                 ],
                 [
                     'title' => 'Pendapatan Bulanan',
-                    'value' => 'Rp ' . number_format($this->getMonthlyRevenue($startOfMonth, $endOfMonth), 0, ',', '.'),
+                    'value' => 'Rp '.number_format((float) $stats->monthly_revenue, 0, ',', '.'),
                     'change' => $this->getRevenueGrowthPercentage($startOfMonth, $endOfMonth),
                     'icon' => 'dollar-sign',
                 ],
@@ -79,7 +100,7 @@ class DashboardService
 
     private function getChartData(): array
     {
-        $cacheKey = 'dashboard_charts_' . now()->format('Y-m-d-H');
+        $cacheKey = 'dashboard_charts_'.now()->format('Y-m-d-H');
 
         return Cache::remember($cacheKey, CacheService::CACHE_TTL_MEDIUM, function () {
             return [
@@ -93,13 +114,27 @@ class DashboardService
     private function getWeeklyTrendData(): array
     {
         $startOfWeek = Carbon::now()->startOfWeek();
+        $endOfWeek = Carbon::now()->endOfWeek();
+
+        // Single optimized query untuk semua data mingguan
+        $weeklyData = DB::table('attendances')
+            ->selectRaw('DATE(check_in_time) as date, COUNT(*) as count')
+            ->whereBetween('check_in_time', [$startOfWeek, $endOfWeek])
+            ->groupBy('date')
+            ->orderBy('date')
+            ->get()
+            ->keyBy('date');
+
         $data = [];
         $labels = [];
 
+        // Generate data untuk 7 hari dengan default 0 jika tidak ada data
         for ($i = 0; $i < 7; $i++) {
             $date = $startOfWeek->copy()->addDays($i);
-            $count = Attendance::whereDate('check_in_time', $date)->count();
-            $data[] = (int) $count; // Ensure integer
+            $dateString = $date->format('Y-m-d');
+
+            $count = $weeklyData->get($dateString, (object) ['count' => 0])->count;
+            $data[] = (int) $count;
             $labels[] = $date->format('D');
         }
 
@@ -138,7 +173,7 @@ class DashboardService
 
     private function getManagerInsights(): array
     {
-        $cacheKey = 'dashboard_insights_' . now()->format('Y-m-d-H');
+        $cacheKey = 'dashboard_insights_'.now()->format('Y-m-d-H');
 
         return Cache::remember($cacheKey, CacheService::CACHE_TTL_MEDIUM, function () {
             return [
@@ -207,7 +242,7 @@ class DashboardService
 
         return [
             'type' => $growth > 0 ? 'increase' : 'decrease',
-            'value' => number_format(abs($growth), 1) . '%',
+            'value' => number_format(abs($growth), 1).'%',
         ];
     }
 
@@ -236,7 +271,7 @@ class DashboardService
 
         return [
             'type' => $change > 0 ? 'increase' : 'decrease',
-            'value' => number_format(abs($change), 1) . '%',
+            'value' => number_format(abs($change), 1).'%',
         ];
     }
 
@@ -268,7 +303,7 @@ class DashboardService
 
         return [
             'type' => $trend >= 0 ? 'increase' : 'decrease',
-            'value' => number_format(abs($trend), 1) . '%',
+            'value' => number_format(abs($trend), 1).'%',
         ];
     }
 
@@ -315,7 +350,7 @@ class DashboardService
 
         return [
             'type' => $growth > 0 ? 'increase' : 'decrease',
-            'value' => number_format(abs($growth), 1) . '%',
+            'value' => number_format(abs($growth), 1).'%',
         ];
     }
 
@@ -325,18 +360,20 @@ class DashboardService
             ->orderBy('attendances_count', 'desc')
             ->first();
 
-        return $member ? $member->name . ' (' . $member->attendances_count . ' kali kunjungan)' : 'Belum ada data';
+        return $member ? $member->name.' ('.$member->attendances_count.' kali kunjungan)' : 'Belum ada data';
     }
 
     private function getPeakHours(): string
     {
-        $peakHour = Attendance::selectRaw('HOUR(check_in_time) as hour, COUNT(*) as count')
-            ->whereDate('check_in_time', '>=', Carbon::now()->subDays(30))
+        // Optimized query dengan database-agnostic approach
+        $peakHour = DB::table('attendances')
+            ->selectRaw('HOUR(check_in_time) as hour, COUNT(*) as count')
+            ->where('check_in_time', '>=', now()->subDays(30))
             ->groupBy('hour')
-            ->orderBy('count', 'desc')
+            ->orderByDesc('count')
             ->first();
 
-        return $peakHour ? $peakHour->hour . ':00 - ' . (intval($peakHour->hour) + 1) . ':00' : 'Belum ada data';
+        return $peakHour ? $peakHour->hour.':00 - '.(intval($peakHour->hour) + 1).':00' : 'Belum ada data';
     }
 
     private function getInactiveMembersAlert(): string
@@ -345,7 +382,7 @@ class DashboardService
             ->where('last_check_in', '<', Carbon::now()->subDays(7))
             ->count();
 
-        return $inactiveCount > 0 ? $inactiveCount . ' member belum check-in selama 7 hari terakhir' : 'Semua member aktif';
+        return $inactiveCount > 0 ? $inactiveCount.' member belum check-in selama 7 hari terakhir' : 'Semua member aktif';
     }
 
     private function getRevenueTargetStatus(): string
@@ -358,7 +395,7 @@ class DashboardService
         $target = 30000000;
         $percentage = ($currentRevenue / $target) * 100;
 
-        return 'Rp ' . number_format($currentRevenue, 0, ',', '.') . ' / Rp ' . number_format($target, 0, ',', '.') . ' (' . number_format($percentage, 1) . '%)';
+        return 'Rp '.number_format($currentRevenue, 0, ',', '.').' / Rp '.number_format($target, 0, ',', '.').' ('.number_format($percentage, 1).'%)';
     }
 
     /**
@@ -369,10 +406,10 @@ class DashboardService
         $today = now()->format('Y-m-d-H');
 
         $cacheKeys = [
-            'dashboard_data_' . $today,
-            'dashboard_stats_' . $today,
-            'dashboard_charts_' . $today,
-            'dashboard_insights_' . $today,
+            'dashboard_data_'.$today,
+            'dashboard_stats_'.$today,
+            'dashboard_charts_'.$today,
+            'dashboard_insights_'.$today,
         ];
 
         foreach ($cacheKeys as $key) {
@@ -382,10 +419,10 @@ class DashboardService
         // Also clear previous hour cache in case of edge cases
         $previousHour = now()->subHour()->format('Y-m-d-H');
         $previousCacheKeys = [
-            'dashboard_data_' . $previousHour,
-            'dashboard_stats_' . $previousHour,
-            'dashboard_charts_' . $previousHour,
-            'dashboard_insights_' . $previousHour,
+            'dashboard_data_'.$previousHour,
+            'dashboard_stats_'.$previousHour,
+            'dashboard_charts_'.$previousHour,
+            'dashboard_insights_'.$previousHour,
         ];
 
         foreach ($previousCacheKeys as $key) {
