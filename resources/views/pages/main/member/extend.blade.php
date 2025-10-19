@@ -34,7 +34,7 @@
                                 class="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                             <input type="text" id="member_search" name="member_search"
                                 class="w-full pl-10 pr-4 py-2 bg-input border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
-                                placeholder="Ketik nama, ID member, atau email..." autocomplete="off">
+                                placeholder="Ketik nama atau ID member" autocomplete="off">
                             <input type="hidden" id="member_id" name="member_id" value="{{ old('member_id') }}">
                         </div>
 
@@ -78,10 +78,6 @@
                                 150.000</option>
                             <option value="3" {{ old('membership_duration') == '3' ? 'selected' : '' }}>3 Bulan - Rp
                                 400.000</option>
-                            <option value="6" {{ old('membership_duration') == '6' ? 'selected' : '' }}>6 Bulan - Rp
-                                750.000</option>
-                            <option value="12" {{ old('membership_duration') == '12' ? 'selected' : '' }}>12 Bulan - Rp
-                                1.400.000</option>
                         </select>
                     </div>
 
@@ -129,7 +125,7 @@
         <script>
             document.addEventListener('DOMContentLoaded', function() {
                 console.log('DOM loaded, initializing member search...');
-                
+
                 const memberSearch = document.getElementById('member_search');
                 const memberResults = document.getElementById('member_results');
                 const memberList = document.getElementById('member_list');
@@ -174,44 +170,47 @@
 
                     searchTimeout = setTimeout(() => {
                         // Show loading state
-                        memberList.innerHTML = '<div class="p-3 text-center text-muted-foreground">Mencari...</div>';
+                        memberList.innerHTML =
+                            '<div class="p-3 text-center text-muted-foreground">Mencari...</div>';
                         memberResults.classList.remove('hidden');
 
-                        const searchUrl = `{{ route('member.search') }}?q=${encodeURIComponent(query)}`;
+                        const searchUrl =
+                            `{{ route('member.search') }}?q=${encodeURIComponent(query)}`;
                         console.log('Making fetch request to:', searchUrl);
 
                         fetch(searchUrl, {
-                            method: 'GET',
-                            headers: {
-                                'Accept': 'application/json',
-                                'Content-Type': 'application/json',
-                                'X-Requested-With': 'XMLHttpRequest'
-                            }
-                        })
-                        .then(response => {
-                            console.log('Response status:', response.status);
-                            console.log('Response headers:', response.headers);
-                            if (!response.ok) {
-                                throw new Error(`HTTP error! status: ${response.status}`);
-                            }
-                            return response.json();
-                        })
-                        .then(data => {
-                            console.log('Search results received:', data);
-                            console.log('Results count:', data ? data.length : 0);
-                            displaySearchResults(data);
-                        })
-                        .catch(error => {
-                            console.error('Error searching members:', error);
-                            memberList.innerHTML = '<div class="p-3 text-center text-red-500">Error: Gagal mencari member</div>';
-                            memberResults.classList.remove('hidden');
-                        });
+                                method: 'GET',
+                                headers: {
+                                    'Accept': 'application/json',
+                                    'Content-Type': 'application/json',
+                                    'X-Requested-With': 'XMLHttpRequest'
+                                }
+                            })
+                            .then(response => {
+                                console.log('Response status:', response.status);
+                                console.log('Response headers:', response.headers);
+                                if (!response.ok) {
+                                    throw new Error(`HTTP error! status: ${response.status}`);
+                                }
+                                return response.json();
+                            })
+                            .then(data => {
+                                console.log('Search results received:', data);
+                                console.log('Results count:', data ? data.length : 0);
+                                displaySearchResults(data);
+                            })
+                            .catch(error => {
+                                console.error('Error searching members:', error);
+                                memberList.innerHTML =
+                                    '<div class="p-3 text-center text-red-500">Error: Gagal mencari member</div>';
+                                memberResults.classList.remove('hidden');
+                            });
                     }, 300);
                 });
 
                 function displaySearchResults(members) {
                     console.log('Displaying search results:', members);
-                    
+
                     if (!members || members.length === 0) {
                         console.log('No members found, showing empty state');
                         memberList.innerHTML =
@@ -219,10 +218,26 @@
                     } else {
                         console.log('Rendering', members.length, 'members');
                         memberList.innerHTML = members.map(member => `
-                        <div class="p-3 hover:bg-muted/50 cursor-pointer member-option" data-member-id="${member.id}" data-member-name="${member.name}" data-member-code="${member.member_code}" data-member-email="${member.email}">
-                            <div class="font-medium text-card-foreground">${member.name}</div>
-                            <div class="text-sm text-muted-foreground">${member.member_code} • ${member.email}</div>
-                        </div>
+                            <div class="p-3 hover:bg-muted/50 cursor-pointer member-option flex items-center justify-between"
+                                data-member-id="${member.id}"
+                                data-member-name="${member.name}"
+                                data-member-code="${member.member_code}"
+                                data-member-status="${member.status}">
+                                
+                                <!-- Kiri: Informasi member -->
+                                <div class="flex flex-col">
+                                    <div class="font-medium text-card-foreground">${member.name}</div>
+                                    <div class="text-sm text-muted-foreground">${member.member_code}</div>
+                                </div>
+
+                                <!-- Kanan: Status badge -->
+                                <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full
+                                    ${member.status === 'ACTIVE'
+                                        ? 'bg-chart-2/20 text-chart-2'
+                                        : 'bg-destructive/20 text-destructive'}">
+                                    ${member.status === 'ACTIVE' ? 'Aktif' : 'Tidak Aktif'}
+                                </span>
+                            </div>
                     `).join('');
                     }
 
@@ -239,18 +254,28 @@
                         const memberId = memberOption.dataset.memberId;
                         const memberName = memberOption.dataset.memberName;
                         const memberCode = memberOption.dataset.memberCode;
-                        const memberEmail = memberOption.dataset.memberEmail;
+                        const memberStatus = memberOption.dataset.memberStatus;
 
-                        console.log('Selected member data:', { memberId, memberName, memberCode, memberEmail });
-                        selectMember(memberId, memberName, memberCode, memberEmail);
+                        console.log('Selected member data:', {
+                            memberId,
+                            memberName,
+                            memberCode,
+                            memberStatus
+                        });
+                        selectMember(memberId, memberName, memberCode, memberStatus);
                     } else {
                         console.log('No member option found in click target');
                     }
                 });
 
                 function selectMember(id, name, code, email) {
-                    console.log('Selecting member:', { id, name, code, email });
-                    
+                    console.log('Selecting member:', {
+                        id,
+                        name,
+                        code,
+                        email
+                    });
+
                     memberIdInput.value = id;
                     selectedMemberName.textContent = name;
                     selectedMemberInfo.textContent = `${code} • ${email}`;
@@ -291,21 +316,21 @@
 
                     const shouldEnable = hasMember && hasDuration && hasPaymentMethod;
                     submitBtn.disabled = !shouldEnable;
-                    
+
                     console.log('Submit button enabled:', shouldEnable);
                 }
 
                 // Listen for form field changes
                 const durationSelect = document.getElementById('membership_duration');
                 const paymentSelect = document.getElementById('payment_method');
-                
+
                 if (durationSelect) {
                     durationSelect.addEventListener('change', function() {
                         console.log('Membership duration changed to:', this.value);
                         updateSubmitButton();
                     });
                 }
-                
+
                 if (paymentSelect) {
                     paymentSelect.addEventListener('change', function() {
                         console.log('Payment method changed to:', this.value);
@@ -320,7 +345,7 @@
                         memberResults.classList.add('hidden');
                     }
                 });
-                
+
                 console.log('All event listeners attached successfully');
             });
         </script>

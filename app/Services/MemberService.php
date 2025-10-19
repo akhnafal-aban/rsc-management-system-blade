@@ -147,12 +147,11 @@ class MemberService
         return DB::transaction(function () use ($memberId, $duration, $paymentMethod, $paymentNotes) {
             $member = Member::findOrFail($memberId);
 
-            // Calculate new exp_date by extending current membership
-            $currentExpDate = $member->exp_date;
-            $newExpDate = Carbon::parse($currentExpDate)->addMonths($duration)->toDateString();
+            $newExpDate = now()->addMonths($duration)->toDateString();
 
-            // Update member's exp_date
-            $member->update(['exp_date' => $newExpDate]);
+            $updated = DB::table('members')
+                ->where('id', $memberId)
+                ->update(['exp_date' => $newExpDate]);
 
             // Create new membership record for extension
             $this->membershipService->createMembershipExtension($member, $duration);
@@ -176,13 +175,11 @@ class MemberService
         $cacheKey = CacheService::getMemberSearchKey($query, 20);
 
         return Cache::remember($cacheKey, CacheService::CACHE_TTL_MEDIUM, function () use ($query) {
-            return Member::select('id', 'member_code', 'name', 'email', 'exp_date', 'status')
+            return Member::select('id', 'member_code', 'name', 'exp_date', 'status')
                 ->where(function ($q) use ($query) {
-                    $q->where('name', 'like', "%{$query}%")
-                        ->orWhere('member_code', 'like', "%{$query}%")
-                        ->orWhere('email', 'like', "%{$query}%");
+                    $q->where('member_code', 'like', "%{$query}%")
+                        ->orWhere('name', 'like', "%{$query}%");
                 })
-                ->where('status', \App\Enums\MemberStatus::ACTIVE)
                 ->orderBy('name')
                 ->limit(20)
                 ->get()
