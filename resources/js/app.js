@@ -43,7 +43,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         
         // Initialize sidebar as open by default
-        sidebar.classList.add('open');
+        // sidebar.classList.add('open');
         
         // Initialize button state and main content
         menuBtnChange();
