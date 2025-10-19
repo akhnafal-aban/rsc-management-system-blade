@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Main;
 
 use App\Http\Controllers\Controller;
 use App\Services\AttendanceService;
+use App\Services\MemberService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -15,7 +16,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 class AttendanceController extends Controller
 {
     public function __construct(
-        private readonly AttendanceService $attendanceService
+        private readonly AttendanceService $attendanceService,
+        private readonly MemberService $memberService
     ) {}
 
     public function index(Request $request): View
@@ -30,28 +32,9 @@ class AttendanceController extends Controller
         return view('pages.main.attendance.attendance', compact('attendances', 'searchResults', 'search', 'statusFilter', 'dateFilter'));
     }
 
-    public function checkInPage(Request $request): View
+    public function checkInPage(): View
     {
-        $search = $request->query('search', null);
-        $perPage = 10;
-
-        $members = $this->attendanceService->searchActiveMembers($search, $perPage);
-
-        return view('pages.main.attendance.check-in', [
-            'members' => $members,
-            'search' => $search,
-        ]);
-    }
-
-    public function searchMember(Request $request): RedirectResponse
-    {
-        $request->validate([
-            'member_search' => ['required', 'string', 'min:2'],
-        ]);
-
-        return redirect()->route('attendance.index', [
-            'member_search' => $request->member_search,
-        ]);
+        return view('pages.main.attendance.check-in');
     }
 
     public function checkIn(Request $request): RedirectResponse
@@ -66,29 +49,22 @@ class AttendanceController extends Controller
             return redirect()->back()->with('error', 'Member tidak ditemukan');
         }
 
-        // Check for duplicate check-in today (main validation)
-        $duplicateCheck = $this->attendanceService->checkDuplicateCheckInToday($member);
+        // Simple validation - just check for duplicate check-in today
+        $duplicateCheck = $this->attendanceService->canCheckIn($member);
 
         if (! $duplicateCheck['can_checkin']) {
             return redirect()->back()->with('error', $duplicateCheck['message']);
-        }
-
-        // Additional check for member status and expiration (as backup)
-        $status = $this->attendanceService->canCheckIn($member);
-
-        if (! $status['can_checkin']) {
-            return redirect()->back()->with('error', $status['message']);
         }
 
         try {
             $this->attendanceService->checkInMember($member, Auth::id());
 
             return redirect()
-                ->route('attendance.index')
+                ->route('attendance.check-in')
                 ->with('success', 'Check-in berhasil!');
         } catch (\Exception $e) {
             return redirect()
-                ->route('attendance.index')
+                ->route('attendance.check-in')
                 ->with('error', 'Terjadi kesalahan: '.$e->getMessage());
         }
     }

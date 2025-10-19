@@ -51,7 +51,7 @@ class MemberService
             }
         }
 
-        return $query->paginate(10);
+        return $query->paginate(5);
     }
 
     public function getMemberById(int $id): Member
@@ -172,19 +172,39 @@ class MemberService
 
     public function searchMembers(string $query): array
     {
+        // Reduce cache TTL for search results to avoid stale data
         $cacheKey = CacheService::getMemberSearchKey($query, 20);
 
-        return Cache::remember($cacheKey, CacheService::CACHE_TTL_MEDIUM, function () use ($query) {
-            return Member::select('id', 'member_code', 'name', 'exp_date', 'status')
+        return Cache::remember($cacheKey, CacheService::CACHE_TTL_SHORT, function () use ($query) {
+            $members = Member::select('id', 'member_code', 'name', 'exp_date', 'status')
                 ->where(function ($q) use ($query) {
                     $q->where('member_code', 'like', "%{$query}%")
                         ->orWhere('name', 'like', "%{$query}%");
                 })
-                ->orderBy('name')
+                ->orderByRaw("CASE WHEN member_code LIKE '%{$query}%' THEN 1 ELSE 2 END")
+                ->orderBy('member_code')
                 ->limit(20)
                 ->get()
                 ->toArray();
+
+            // Add formatted exp_date to each member
+            return array_map(function ($member) {
+                $member['exp_date_formatted'] = \Carbon\Carbon::parse($member['exp_date'])->format('d M Y');
+
+                return $member;
+            }, $members);
         });
+    }
+
+    public function clearSearchCache(?string $query = null): void
+    {
+        if ($query) {
+            $cacheKey = CacheService::getMemberSearchKey($query, 20);
+            Cache::forget($cacheKey);
+        } else {
+            // Clear all member search caches
+            Cache::flush(); // This is more aggressive, use with caution
+        }
     }
 
     public function getMemberStats(Member $member): array
