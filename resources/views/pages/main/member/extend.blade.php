@@ -268,17 +268,17 @@
                     }
                 });
 
-                function selectMember(id, name, code, email) {
+                function selectMember(id, name, code, exp_date) {
                     console.log('Selecting member:', {
                         id,
                         name,
                         code,
-                        email
+                        exp_date
                     });
 
                     memberIdInput.value = id;
                     selectedMemberName.textContent = name;
-                    selectedMemberInfo.textContent = `${code} • ${email}`;
+                    selectedMemberInfo.textContent = `${code} • ${exp_date}`;
 
                     console.log('Member ID input value set to:', memberIdInput.value);
                     console.log('Selected member name set to:', selectedMemberName.textContent);
