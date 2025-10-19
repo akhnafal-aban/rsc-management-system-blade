@@ -224,7 +224,7 @@
                                     </p>
                                 </div>
                                 <div class="bg-muted/25 rounded p-2">
-                                    <p class="text-xs text-muted-foreground mb-0.5">Expired</p>
+                                    <p class="text-xs text-muted-foreground mb-0.5">Exp Date</p>
                                     <p class="text-xs font-medium {{ $isExpired ? 'text-red-200' : 'text-green-200' }}">
                                         {{ \Carbon\Carbon::parse($member->exp_date)->format('d M Y') }}
                                     </p>
