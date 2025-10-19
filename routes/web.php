@@ -36,7 +36,6 @@ Route::middleware('auth')->group(function () {
     // Attendance
     Route::get('/attendance', [AttendanceController::class, 'index'])->name('attendance.index');
     Route::get('/attendance/check-in', [AttendanceController::class, 'checkInPage'])->name('attendance.check-in');
-    Route::post('/attendance/search-member', [AttendanceController::class, 'searchMember'])->name('attendance.search-member');
     Route::post('/attendance/checkin', [AttendanceController::class, 'checkIn'])->name('attendance.checkin');
     Route::post('/attendance/checkout', [AttendanceController::class, 'checkOut'])->name('attendance.checkout');
     Route::get('/attendance/export', [AttendanceController::class, 'exportTodayAttendances'])->name('attendance.export');
