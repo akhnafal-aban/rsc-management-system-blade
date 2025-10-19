@@ -36,7 +36,6 @@
             {{-- Header --}}
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-3">
                 <h3 class="text-lg font-semibold text-card-foreground">
-                    Absensi
                     {{ $dateFilter === now()->format('Y-m-d') ? 'Hari Ini' : \Carbon\Carbon::parse($dateFilter)->format('d M Y') }}
                 </h3>
 
