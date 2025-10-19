@@ -19,7 +19,7 @@ class ExpireMemberships extends Command
 
     public function handle(): int
     {
-        $this->info('Checking for expired memberships...');
+        // $this->info('Checking for expired memberships...');
 
         $expiredMembers = Member::where('status', MemberStatus::ACTIVE)
             ->where('exp_date', '<', Carbon::today()->toDateString())
@@ -31,47 +31,40 @@ class ExpireMemberships extends Command
             return Command::SUCCESS;
         }
 
-        $this->info("Found {$expiredMembers->count()} expired memberships:");
+        // $this->info("Found {$expiredMembers->count()} expired memberships:");
+
+        // foreach ($expiredMembers as $member) {
+        //     $this->line("- {$member->name} ({$member->member_code}) - Expired: {$member->exp_date}");
+        // }
+
+        // if ($this->option('dry-run')) {
+        //     $this->warn('DRY RUN: No changes made.');
+
+        //     return Command::SUCCESS;
+        // }
+
+        // Langsung proses tanpa konfirmasi (non-interactive mode)
+        $expiredMemberNames = [];
 
         foreach ($expiredMembers as $member) {
-            $this->line("- {$member->name} ({$member->member_code}) - Expired: {$member->exp_date}");
-        }
+            try {
+                $member->update(['status' => MemberStatus::INACTIVE]);
+                $expiredMemberNames[] = $member->name;
 
-        if ($this->option('dry-run')) {
-            $this->warn('DRY RUN: No changes made.');
-
-            return Command::SUCCESS;
-        }
-
-        // Check if running in non-interactive mode (scheduled execution)
-        $autoProceed = ! $this->input->isInteractive();
-        $shouldProceed = $autoProceed || $this->confirm('Do you want to expire these memberships?');
-
-        if ($shouldProceed) {
-            $expiredMemberNames = [];
-
-            foreach ($expiredMembers as $member) {
-                try {
-                    $member->update(['status' => MemberStatus::INACTIVE]);
-                    $expiredMemberNames[] = $member->name;
-
-                    Log::info("Expired membership for member: {$member->name} ({$member->member_code})");
-                } catch (\Exception $e) {
-                    $this->error("Failed to expire membership for {$member->name}: {$e->getMessage()}");
-                    Log::error("Failed to expire membership for {$member->name}: {$e->getMessage()}");
-                }
+                Log::info("Expired membership for member: {$member->name} ({$member->member_code})");
+            } catch (\Exception $e) {
+                $this->error("Failed to expire membership for {$member->name}: {$e->getMessage()}");
+                Log::error("Failed to expire membership for {$member->name}: {$e->getMessage()}");
             }
-
-            // Store expired member info for notification
-            if (! empty($expiredMemberNames)) {
-                Cache::put('last_expired_members', $expiredMemberNames, now()->addHours(1));
-            }
-
-            $this->info('Successfully expired '.count($expiredMemberNames).' memberships.');
-            Log::info('Membership expiration completed. Expired '.count($expiredMemberNames).' memberships.');
-        } else {
-            $this->info('Operation cancelled.');
         }
+
+        // Store expired member info for notification
+        if (! empty($expiredMemberNames)) {
+            Cache::put('last_expired_members', $expiredMemberNames, now()->addHours(1));
+        }
+
+        $this->info('Successfully expired ' . count($expiredMemberNames) . ' memberships.');
+        Log::info('Membership expiration completed. Expired ' . count($expiredMemberNames) . ' memberships.');
 
         return Command::SUCCESS;
     }
