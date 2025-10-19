@@ -14,8 +14,9 @@ Artisan::command('inspire', function () {
 // Schedule membership expiration check to run daily at midnight
 Schedule::command('memberships:expire')
     ->dailyAt('00:00')
-    ->withoutOverlapping()
-    ->runInBackground()
+    // ->everyMinute()
+    ->withoutOverlapping() // Disabled for testing
+    ->runInBackground() // Disabled for testing - run in foreground to see output
     ->onSuccess(function () {
         // Log success if needed
         Log::info('Membership expiration check completed successfully');
@@ -54,3 +55,14 @@ Schedule::command('memberships:expire')
             'Membership expiration check failed'
         );
     });
+
+// Test command for notifications - runs every 30 seconds for testing
+// Schedule::command('test:notification')
+//     ->everyThirtySeconds()
+//     ->onSuccess(function () {
+//         NotificationController::addCommandNotification(
+//             'Test Notification',
+//             'success',
+//             'Ini adalah notifikasi test yang berjalan setiap 30 detik'
+//         );
+//     });
