@@ -40,6 +40,8 @@
                         <div id="bell-icon" class="transition-all duration-300">
                             <x-ui.icon name="bell" class="w-5 h-5 transition-all duration-300" id="bell-svg" />
                         </div>
+                        <!-- Red notification badge -->
+                        <div id="notification-badge" class="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full hidden"></div>
                     </button>
 
                     <!-- Notification Popup -->
@@ -72,6 +74,8 @@
                     <div id="bell-icon-mobile" class="transition-all duration-300">
                         <x-ui.icon name="bell" class="w-5 h-5 transition-all duration-300" id="bell-svg-mobile" />
                     </div>
+                    <!-- Red notification badge -->
+                    <div id="notification-badge-mobile" class="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full hidden"></div>
                 </button>
 
                 <!-- Mobile Notification Popup -->
@@ -157,9 +161,11 @@
     }
 
     function loadNotifications() {
+        console.log('Loading desktop notifications...');
         fetch('{{ route('notifications.scheduled-commands') }}')
             .then(response => response.json())
             .then(data => {
+                console.log('Desktop notification data:', data);
                 const content = document.getElementById('notification-content');
                 const contentMobile = document.getElementById('notification-content-mobile');
 
@@ -231,6 +237,7 @@
                 updateContent(contentMobile);
 
                 // Update bell icon based on notification status
+                console.log('Updating desktop bell icon with has_new:', data.has_new);
                 updateBellIcon(data.has_new);
             })
             .catch(error => {
@@ -246,16 +253,22 @@
     }
 
     function updateBellIcon(hasNew) {
+        console.log('updateBellIcon called with hasNew:', hasNew);
         // Update desktop bell icon
         const bellIcon = document.getElementById('bell-icon');
         const bellSvg = document.getElementById('bell-svg');
+        const notificationBadge = document.getElementById('notification-badge');
 
         // Update mobile bell icon
         const bellIconMobile = document.getElementById('bell-icon-mobile');
         const bellSvgMobile = document.getElementById('bell-svg-mobile');
+        const notificationBadgeMobile = document.getElementById('notification-badge-mobile');
 
-        const updateIcon = (icon, svg) => {
-            if (!icon || !svg) return;
+        console.log('Desktop elements found:', { bellIcon, bellSvg, notificationBadge });
+        console.log('Mobile elements found:', { bellIconMobile, bellSvgMobile, notificationBadgeMobile });
+
+        const updateIcon = (icon, svg, badge) => {
+            if (!icon) return;
 
             if (hasNew) {
                 // Add notification state classes - orange color with pulse animation
@@ -263,20 +276,37 @@
                 icon.classList.remove('text-muted-foreground');
 
                 // Add visual indicator that there are new notifications
-                svg.classList.add('text-orange-500');
-                svg.classList.remove('text-muted-foreground');
+                if (svg) {
+                    svg.classList.add('text-orange-500');
+                    svg.classList.remove('text-muted-foreground');
+                }
+                
+                // Show red notification badge
+                if (badge) {
+                    console.log('Showing red notification badge');
+                    badge.classList.remove('hidden');
+                } else {
+                    console.log('Notification badge element not found!');
+                }
             } else {
                 // Remove notification state classes - back to normal muted color
                 icon.classList.remove('text-orange-500', 'animate-pulse');
                 icon.classList.add('text-muted-foreground');
 
-                svg.classList.remove('text-orange-500');
-                svg.classList.add('text-muted-foreground');
+                if (svg) {
+                    svg.classList.remove('text-orange-500');
+                    svg.classList.add('text-muted-foreground');
+                }
+                
+                // Hide red notification badge
+                if (badge) {
+                    badge.classList.add('hidden');
+                }
             }
         };
 
-        updateIcon(bellIcon, bellSvg);
-        updateIcon(bellIconMobile, bellSvgMobile);
+        updateIcon(bellIcon, bellSvg, notificationBadge);
+        updateIcon(bellIconMobile, bellSvgMobile, notificationBadgeMobile);
     }
 
     function startNotificationPolling() {

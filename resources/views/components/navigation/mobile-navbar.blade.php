@@ -2,8 +2,8 @@
 <nav class="block sm:hidden bg-card border-b border-border px-4 py-3 shadow-sm fixed top-0 left-0 right-0 z-[1000]">
     <div class="flex items-center justify-between">
         <!-- Mobile Menu Button -->
-        <button id="mobile-menu-toggle" 
-                class="p-3 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors touch-manipulation">
+        <button id="mobile-menu-toggle"
+            class="p-3 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors touch-manipulation">
             <x-ui.icon name="menu" class="w-6 h-6" />
         </button>
 
@@ -17,6 +17,9 @@
                     <div id="mobile-bell-icon" class="transition-all duration-300">
                         <x-ui.icon name="bell" class="w-5 h-5 transition-all duration-300" id="mobile-bell-svg" />
                     </div>
+                    <!-- Red notification badge -->
+                    <div id="mobile-notification-badge"
+                        class="absolute -top-1 -right-1 w-2 h-2 bg-red-500 mt-1 mr-1 rounded-full hidden"></div>
                 </button>
 
                 <!-- Mobile Notification Popup -->
@@ -34,8 +37,9 @@
             </div>
 
             <!-- Settings Button -->
-            <button class="p-3 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors touch-manipulation"
-                title="Pengaturan">
+            <button
+                class="p-3 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors touch-manipulation"
+                title="Pengaturan" onclick="handleSettings()">
                 <x-ui.icon name="settings" class="w-5 h-5" />
             </button>
 
@@ -53,15 +57,18 @@
 <div id="mobile-menu-overlay" class="fixed inset-0 bg-black/50 z-[999] hidden sm:hidden"></div>
 
 <!-- Mobile Menu Slide Panel -->
-<div id="mobile-menu-panel" class="fixed left-0 top-0 h-full w-80 bg-background-muted z-[1000] transform -translate-x-full transition-transform duration-300 ease-in-out sm:hidden">
+<div id="mobile-menu-panel"
+    class="fixed left-0 top-0 h-full w-80 bg-background-muted z-[1000] transform -translate-x-full transition-transform duration-300 ease-in-out sm:hidden">
     <div class="h-16 flex items-center justify-between px-4 border-b border-border">
         <div class="flex items-center space-x-3">
             <div class="w-8 h-8 rounded-xl flex items-center justify-center shadow-sm overflow-hidden">
-                <img src="{{ Vite::asset('resources/images/rsc_logo.png') }}" alt="RSC Logo" class="w-full h-full object-cover rounded-xl">
+                <img src="{{ Vite::asset('resources/images/rsc_logo.png') }}" alt="RSC Logo"
+                    class="w-full h-full object-cover rounded-xl">
             </div>
             <h2 class="text-lg font-semibold text-foreground">Navigation</h2>
         </div>
-        <button id="mobile-menu-close" class="p-3 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors touch-manipulation">
+        <button id="mobile-menu-close"
+            class="p-3 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors touch-manipulation">
             <x-ui.icon name="x" class="w-6 h-6" />
         </button>
     </div>
@@ -69,11 +76,7 @@
     <!-- Navigation Menu -->
     <div class="flex-1 overflow-y-auto px-4 py-4">
         <nav class="space-y-2">
-            @php($menuItems = [
-                ['id' => 'dashboard', 'label' => 'Dashboard', 'icon' => 'home', 'route' => 'dashboard'], 
-                ['id' => 'attendance', 'label' => 'Absensi', 'icon' => 'user-check', 'route' => 'attendance.index'], 
-                ['id' => 'members', 'label' => 'Members', 'icon' => 'users', 'route' => 'member.index']
-            ])
+            @php($menuItems = [['id' => 'dashboard', 'label' => 'Dashboard', 'icon' => 'home', 'route' => 'dashboard'], ['id' => 'attendance', 'label' => 'Absensi', 'icon' => 'user-check', 'route' => 'attendance.index'], ['id' => 'members', 'label' => 'Members', 'icon' => 'users', 'route' => 'member.index']])
 
             @foreach ($menuItems as $item)
                 @php($isActive = request()->routeIs($item['route']) || (request()->routeIs('dashboard') && $item['id'] === 'dashboard'))
@@ -208,10 +211,23 @@
             }
         });
 
+        function handleSettings() {
+
+            // Show settings modal or redirect to settings page
+            showAlert(
+                'Fitur pengaturan akan segera tersedia!',
+                'Informasi',
+                'info'
+            );
+            // You can replace this with actual settings functionality later
+        }
+
         function loadMobileNotifications() {
+            console.log('Loading mobile notifications...');
             fetch('{{ route('notifications.scheduled-commands') }}')
                 .then(response => response.json())
                 .then(data => {
+                    console.log('Mobile notification data:', data);
                     const content = document.getElementById('mobile-notification-content');
 
                     if (data.notifications.length === 0) {
@@ -224,19 +240,24 @@
                     } else {
                         let html = '';
                         data.notifications.forEach(notification => {
-                            const statusColor = notification.status === 'success' ? 'text-green-600' : 'text-red-600';
-                            const statusIcon = notification.status === 'success' ? 'check-circle' : 'x-circle';
-                            const iconClass = statusIcon === 'check-circle' ? 'icon-check' : 'icon-x';
+                            const statusColor = notification.status === 'success' ?
+                                'text-green-600' : 'text-red-600';
+                            const statusIcon = notification.status === 'success' ? 'check-circle' :
+                                'x-circle';
+                            const iconClass = statusIcon === 'check-circle' ? 'icon-check' :
+                                'icon-x';
 
                             let notificationContent = '';
-                            if (notification.command === 'Auto Check-out Process' && notification.member_name && notification.checkout_time) {
+                            if (notification.command === 'Auto Check-out Process' && notification
+                                .member_name && notification.checkout_time) {
                                 notificationContent = `
                                     <p class="text-sm font-medium text-card-foreground">${notification.command}</p>
                                     <p class="text-xs ${statusColor} capitalize">${notification.status}</p>
                                     <p class="text-xs text-muted-foreground mt-1">${notification.member_name} berhasil di check-out otomatis ${notification.checkout_time}</p>
                                     <p class="text-xs text-muted-foreground mt-1">${notification.date} ${notification.time}</p>
                                 `;
-                            } else if (notification.command === 'Membership Expiration Check' && notification.member_name && !notification.checkout_time) {
+                            } else if (notification.command === 'Membership Expiration Check' &&
+                                notification.member_name && !notification.checkout_time) {
                                 notificationContent = `
                                     <p class="text-sm font-medium text-card-foreground">${notification.command}</p>
                                     <p class="text-xs ${statusColor} capitalize">${notification.status}</p>
@@ -269,6 +290,7 @@
                     }
 
                     // Update mobile bell icon based on notification status
+                    console.log('Updating mobile bell icon with has_new:', data.has_new);
                     updateMobileBellIcon(data.has_new);
                 })
                 .catch(error => {
@@ -282,39 +304,65 @@
         }
 
         function updateMobileBellIcon(hasNew) {
+            console.log('updateMobileBellIcon called with hasNew:', hasNew);
             const bellIcon = document.getElementById('mobile-bell-icon');
-            const bellSvg = document.getElementById('mobile-bell-svg');
+            const bellSvg = bellIcon ? bellIcon.querySelector('svg') : null;
+            const notificationBadge = document.getElementById('mobile-notification-badge');
 
-            if (!bellIcon || !bellSvg) return;
+            console.log('Elements found:', {
+                bellIcon,
+                bellSvg,
+                notificationBadge
+            });
+
+            if (!bellIcon) return;
 
             if (hasNew) {
+                console.log('Showing notification badge and updating icon');
                 bellIcon.classList.add('text-orange-500', 'animate-pulse');
                 bellIcon.classList.remove('text-muted-foreground');
-                bellSvg.classList.add('text-orange-500');
-                bellSvg.classList.remove('text-muted-foreground');
+                if (bellSvg) {
+                    bellSvg.classList.add('text-orange-500');
+                    bellSvg.classList.remove('text-muted-foreground');
+                }
+
+                // Show red notification badge
+                if (notificationBadge) {
+                    console.log('Showing red notification badge');
+                    notificationBadge.classList.remove('hidden');
+                } else {
+                    console.log('Notification badge element not found!');
+                }
             } else {
                 bellIcon.classList.remove('text-orange-500', 'animate-pulse');
                 bellIcon.classList.add('text-muted-foreground');
-                bellSvg.classList.remove('text-orange-500');
-                bellSvg.classList.add('text-muted-foreground');
+                if (bellSvg) {
+                    bellSvg.classList.remove('text-orange-500');
+                    bellSvg.classList.add('text-muted-foreground');
+                }
+
+                // Hide red notification badge
+                if (notificationBadge) {
+                    notificationBadge.classList.add('hidden');
+                }
             }
         }
 
         function markNotificationsAsRead() {
             fetch('{{ route('notifications.mark-read') }}', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                updateMobileBellIcon(false);
-            })
-            .catch(error => {
-                console.error('Error marking notifications as read:', error);
-            });
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    updateMobileBellIcon(false);
+                })
+                .catch(error => {
+                    console.error('Error marking notifications as read:', error);
+                });
         }
 
         // Load notifications on page load
