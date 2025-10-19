@@ -1,6 +1,8 @@
 import './bootstrap';
 import { Chart, registerables } from 'chart.js';
 import './notifications.js';
+import '../images/rsc_logo.png'
+
 
 Chart.register(...registerables);
 window.Chart = Chart;
