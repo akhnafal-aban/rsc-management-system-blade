@@ -115,45 +115,6 @@ class AttendanceService
         return $result ? Member::hydrate([$result])->first() : null;
     }
 
-    public function searchActiveMembers(?string $search = null, int $perPage = 10): LengthAwarePaginator
-    {
-        $cacheKey = CacheService::getMemberSearchKey($search ?? '', $perPage);
-
-        return Cache::remember($cacheKey, CacheService::CACHE_TTL_SHORT, function () use ($search, $perPage) {
-            $today = Carbon::today();
-
-            // Optimized query dengan proper JOIN instead of raw SQL
-            $query = DB::table('members')
-                ->leftJoin('attendances', function ($join) use ($today) {
-                    $join->on('members.id', '=', 'attendances.member_id')
-                        ->whereDate('attendances.check_in_time', $today)
-                        ->whereNull('attendances.check_out_time');
-                })
-                ->select([
-                    'members.id',
-                    'members.member_code',
-                    'members.name',
-                    'members.exp_date',
-                    'members.status',
-                    DB::raw('CASE WHEN attendances.id IS NOT NULL THEN 1 ELSE 0 END as has_checked_in_today'),
-                ]);
-
-            if (! empty($search = trim($search ?? ''))) {
-                $query->where(function ($q) use ($search) {
-                    $q->where('members.member_code', 'like', "%{$search}%")
-                        ->orWhere('members.name', 'like', "%{$search}%");
-                });
-            }
-
-            return $query
-                ->orderByRaw("CASE WHEN members.status = 'ACTIVE' THEN 1 ELSE 2 END") // ACTIVE first, then INACTIVE
-                ->orderBy('members.member_code')
-                ->orderBy('members.name')
-                ->paginate($perPage)
-                ->withQueryString();
-        });
-    }
-
     public function canCheckIn(Member $member): array
     {
         $today = Carbon::today();
@@ -195,38 +156,11 @@ class AttendanceService
             ];
         }
 
-        if ($member->exp_date < $today) {
-            return [
-                'can_checkin' => false,
-                'can_checkout' => false,
-                'attendance' => null,
-                'message' => 'Keanggotaan sudah expired',
-            ];
-        }
-
         return [
             'can_checkin' => true,
             'can_checkout' => false,
             'attendance' => null,
             'message' => 'Member dapat check-in',
-        ];
-    }
-
-    public function checkDuplicateCheckInToday(Member $member): array
-    {
-        // Reuse the logic from canCheckIn to avoid duplicate query
-        $status = $this->canCheckIn($member);
-
-        if (! $status['can_checkin'] && $status['attendance']) {
-            return [
-                'can_checkin' => false,
-                'message' => 'Member sudah melakukan check-in hari ini pada '.$status['attendance']->check_in_time->format('H:i:s'),
-            ];
-        }
-
-        return [
-            'can_checkin' => $status['can_checkin'],
-            'message' => $status['message'],
         ];
     }
 
