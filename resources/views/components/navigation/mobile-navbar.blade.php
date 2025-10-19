@@ -240,7 +240,7 @@
                                 notificationContent = `
                                     <p class="text-sm font-medium text-card-foreground">${notification.command}</p>
                                     <p class="text-xs ${statusColor} capitalize">${notification.status}</p>
-                                    <p class="text-xs text-muted-foreground mt-1">${notification.member_name} keanggotaan berhasil diubah menjadi inactive dikarenakan expired</p>
+                                    <p class="text-xs text-muted-foreground mt-1">${notification.member_name} keanggotaan menjadi inactive dikarenakan expired</p>
                                     <p class="text-xs text-muted-foreground mt-1">${notification.date} ${notification.time}</p>
                                 `;
                             } else {
