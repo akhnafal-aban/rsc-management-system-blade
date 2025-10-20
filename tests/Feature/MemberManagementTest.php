@@ -43,7 +43,7 @@ class MemberManagementTest extends TestCase
             'name' => 'John Doe',
             'email' => 'john@example.com',
             'phone' => '08123456789',
-            'membership_duration' => '12',
+            'membership_duration' => '3',
             'payment_method' => 'CASH',
             'payment_notes' => 'Test payment',
         ];

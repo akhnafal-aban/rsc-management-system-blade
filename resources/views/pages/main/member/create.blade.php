@@ -49,8 +49,6 @@
                             <option value="">Pilih durasi membership</option>
                             <option value="1" {{ old('membership_duration') == '1' ? 'selected' : '' }}>1 Bulan - Rp 150.000</option>
                             <option value="3" {{ old('membership_duration') == '3' ? 'selected' : '' }}>3 Bulan - Rp 400.000</option>
-                            <option value="6" {{ old('membership_duration') == '6' ? 'selected' : '' }}>6 Bulan - Rp 750.000</option>
-                            <option value="12" {{ old('membership_duration') == '12' ? 'selected' : '' }}>12 Bulan - Rp 1.400.000</option>
                         </select>
                     </div>
 
@@ -75,6 +73,35 @@
                 </div>
             </div>
 
+            <!-- Biaya Pendaftaran dan Membership -->
+            <div class="bg-card p-4 sm:p-6 rounded-lg shadow-sm border border-border">
+                <h2 class="text-lg font-semibold text-card-foreground mb-4">Rincian Biaya</h2>
+                
+                <div class="space-y-3">
+                    <div class="flex justify-between items-center py-2 border-b border-border">
+                        <span class="text-sm text-card-foreground">Biaya Pendaftaran Member Baru</span>
+                        <span class="font-semibold text-card-foreground">Rp 50.000</span>
+                    </div>
+                    
+                    <div class="flex justify-between items-center py-2 border-b border-border">
+                        <span class="text-sm text-card-foreground">Biaya Membership</span>
+                        <span class="font-semibold text-card-foreground" id="membership-cost">Rp 0</span>
+                    </div>
+                    
+                    <div class="flex justify-between items-center py-3 bg-muted/50 rounded-lg px-3">
+                        <span class="text-base font-semibold text-card-foreground">Total Biaya</span>
+                        <span class="text-lg font-bold text-primary" id="total-cost">Rp 50.000</span>
+                    </div>
+                </div>
+                
+                <div class="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                    <p class="text-sm text-blue-800 dark:text-blue-200">
+                        <x-ui.icon name="info" class="w-4 h-4 inline mr-1" />
+                        <strong>Informasi:</strong> Setiap member baru dikenakan biaya pendaftaran Rp 50.000 + biaya membership sesuai durasi yang dipilih.
+                    </p>
+                </div>
+            </div>
+
             <div class="flex flex-col sm:flex-row items-center justify-end gap-3 sm:gap-4">
                 <a href="{{ route('member.index') }}" 
                     class="w-full sm:w-auto px-6 py-2 border border-border bg-background text-foreground rounded-lg hover:bg-muted/50 transition-colors text-center">
@@ -88,4 +115,37 @@
             </div>
         </form>
     </div>
+
+    <script>
+        // Membership pricing - Currently available durations only
+        const membershipPrices = {
+            '1': 150000,
+            '3': 400000
+        };
+
+        const registrationFee = 50000;
+
+        function updateCosts() {
+            const duration = document.getElementById('membership_duration').value;
+            const membershipCostElement = document.getElementById('membership-cost');
+            const totalCostElement = document.getElementById('total-cost');
+
+            if (duration && membershipPrices[duration]) {
+                const membershipCost = membershipPrices[duration];
+                const totalCost = registrationFee + membershipCost;
+
+                membershipCostElement.textContent = `Rp ${membershipCost.toLocaleString('id-ID')}`;
+                totalCostElement.textContent = `Rp ${totalCost.toLocaleString('id-ID')}`;
+            } else {
+                membershipCostElement.textContent = 'Rp 0';
+                totalCostElement.textContent = `Rp ${registrationFee.toLocaleString('id-ID')}`;
+            }
+        }
+
+        // Update costs when membership duration changes
+        document.getElementById('membership_duration').addEventListener('change', updateCosts);
+
+        // Initialize costs on page load
+        document.addEventListener('DOMContentLoaded', updateCosts);
+    </script>
 @endsection
