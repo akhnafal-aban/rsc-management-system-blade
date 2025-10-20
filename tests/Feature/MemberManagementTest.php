@@ -88,6 +88,7 @@ class MemberManagementTest extends TestCase
             'name' => 'Jane Doe',
             'email' => 'jane@example.com',
             'phone' => '08123456789',
+            'exp_date' => now()->addMonths(6)->format('Y-m-d'),
         ];
 
         $response = $this->put(route('member.update', $member), $updateData);

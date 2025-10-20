@@ -21,6 +21,7 @@ class UpdateMemberRequest extends FormRequest
             'name' => 'required|string|max:100',
             'email' => 'nullable|email|unique:members,email,'.$memberId,
             'phone' => 'nullable|string|max:20',
+            'exp_date' => 'required|date',
         ];
     }
 
@@ -32,6 +33,8 @@ class UpdateMemberRequest extends FormRequest
             'email.email' => 'Format email tidak valid.',
             'email.unique' => 'Email sudah terdaftar.',
             'phone.max' => 'Nomor telepon maksimal 20 karakter.',
+            'exp_date.required' => 'Tanggal expired harus diisi.',
+            'exp_date.date' => 'Format tanggal expired tidak valid.',
         ];
     }
 }

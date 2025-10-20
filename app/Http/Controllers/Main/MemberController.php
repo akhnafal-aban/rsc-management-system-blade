@@ -51,10 +51,30 @@ class MemberController extends Controller
 
     public function update(UpdateMemberRequest $request, Member $member)
     {
-        $this->memberService->updateMember($member->id, $request->validated());
+        $validatedData = $request->validated();
 
-        return redirect()->route('member.show', $member)
-            ->with('success', 'Data member berhasil diperbarui.');
+        // Get original exp_date for comparison
+        $originalExpDate = $member->exp_date?->format('Y-m-d');
+        $newExpDate = $validatedData['exp_date'] ?? null;
+
+        // Update member
+        $updatedMember = $this->memberService->updateMember($member->id, $validatedData);
+
+        // Prepare success message based on what was changed
+        $message = 'Data member berhasil diperbarui.';
+
+        if ($originalExpDate !== $newExpDate) {
+            $expirationStatus = $this->memberService->getMemberExpirationStatus($updatedMember);
+
+            if ($expirationStatus['is_expired']) {
+                $message .= ' Perhatian: Member telah expired berdasarkan tanggal baru.';
+            } elseif ($expirationStatus['is_expiring_soon']) {
+                $message .= ' Peringatan: Member akan expired dalam '.$expirationStatus['days_until_expiry'].' hari.';
+            }
+        }
+
+        return redirect()->route('member.show', $updatedMember)
+            ->with('success', $message);
     }
 
     public function destroy(Member $member)
@@ -112,5 +132,12 @@ class MemberController extends Controller
 
         return redirect()->route('member.show', $member)
             ->with('success', 'Membership berhasil diperpanjang.');
+    }
+
+    public function getExpirationStatus(Member $member)
+    {
+        $expirationStatus = $this->memberService->getMemberExpirationStatus($member);
+
+        return response()->json($expirationStatus);
     }
 }

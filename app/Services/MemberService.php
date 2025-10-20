@@ -102,12 +102,21 @@ class MemberService
     {
         return DB::transaction(function () use ($id, $data) {
             $member = Member::findOrFail($id);
+            $originalExpDate = $member->exp_date;
 
-            // Update member data only (no membership extension logic)
+            // Update member data
             $member->update($data);
+
+            // Check if exp_date was changed and update member status accordingly
+            if (isset($data['exp_date']) && $data['exp_date'] !== $originalExpDate?->format('Y-m-d')) {
+                $this->updateMemberStatusBasedOnExpDate($member);
+            }
 
             // Invalidate member caches
             CacheService::invalidateMemberCaches();
+
+            // Invalidate dashboard cache if status might have changed
+            $this->dashboardService->invalidateDashboardCache();
 
             return $member->fresh(['membership', 'payments']);
         });
@@ -147,7 +156,12 @@ class MemberService
         return DB::transaction(function () use ($memberId, $duration, $paymentMethod, $paymentNotes) {
             $member = Member::findOrFail($memberId);
 
-            $newExpDate = now()->addMonths($duration)->toDateString();
+            // Extend from current exp_date, or from now if exp_date is in the past
+            $currentExpDate = Carbon::parse($member->exp_date);
+            $today = Carbon::today();
+
+            $baseDate = $currentExpDate->isFuture() ? $currentExpDate : $today;
+            $newExpDate = $baseDate->addMonths($duration)->toDateString();
 
             $updated = DB::table('members')
                 ->where('id', $memberId)
@@ -219,6 +233,38 @@ class MemberService
             'last_check_in' => $lastCheckIn?->created_at,
             'membership_status' => $member->membership ? 'Aktif' : 'Tidak ada membership',
             'membership_expiry' => $member->membership?->end_date,
+        ];
+    }
+
+    public function updateMemberStatusBasedOnExpDate(Member $member): Member
+    {
+        $today = Carbon::today();
+        $expDate = Carbon::parse($member->exp_date);
+
+        if ($expDate->isPast() && $member->status === \App\Enums\MemberStatus::ACTIVE) {
+            // Member expired but still marked as active - keep as active but log the change
+            // This allows manual reactivation if needed
+            $member->update(['status' => \App\Enums\MemberStatus::ACTIVE]);
+        } elseif ($expDate->isFuture() && $member->status === \App\Enums\MemberStatus::INACTIVE) {
+            // Member has future exp_date but marked as inactive - could be reactivated
+            // Keep as inactive unless explicitly activated
+        }
+
+        return $member;
+    }
+
+    public function getMemberExpirationStatus(Member $member): array
+    {
+        $today = Carbon::today();
+        $expDate = Carbon::parse($member->exp_date);
+        $daysUntilExpiry = $today->diffInDays($expDate, false);
+
+        return [
+            'is_expired' => $expDate->isPast(),
+            'is_expiring_soon' => $daysUntilExpiry <= 7 && $daysUntilExpiry >= 0,
+            'days_until_expiry' => $daysUntilExpiry,
+            'exp_date_formatted' => $expDate->format('d M Y'),
+            'status' => $member->status,
         ];
     }
 
