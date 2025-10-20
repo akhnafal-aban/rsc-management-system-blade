@@ -20,7 +20,7 @@ class StoreMemberRequest extends FormRequest
             'email' => 'nullable|email|unique:members,email',
             'phone' => 'nullable|string|max:20',
             'status' => 'sometimes|in:ACTIVE,INACTIVE',
-            'membership_duration' => 'required|integer|in:1,3,6,12',
+            'membership_duration' => 'required|integer|in:1,3',
             'payment_method' => 'required|in:CASH,TRANSFER,EWALLET',
             'payment_notes' => 'nullable|string|max:500',
         ];
@@ -37,7 +37,7 @@ class StoreMemberRequest extends FormRequest
             'status.in' => 'Status harus ACTIVE atau INACTIVE.',
             'membership_duration.required' => 'Durasi membership harus diisi.',
             'membership_duration.integer' => 'Durasi membership harus berupa angka.',
-            'membership_duration.in' => 'Durasi membership harus 1, 3, 6, atau 12 bulan.',
+            'membership_duration.in' => 'Durasi membership harus 1 atau 3 bulan.',
             'payment_method.required' => 'Metode pembayaran harus diisi.',
             'payment_method.in' => 'Metode pembayaran harus CASH, TRANSFER, atau EWALLET.',
             'payment_notes.max' => 'Catatan pembayaran maksimal 500 karakter.',

@@ -84,9 +84,9 @@ class MemberService
             // Create membership using MembershipService
             $this->membershipService->createMembership($member, $membershipDuration);
 
-            // Create payment using PaymentService
-            $amount = $this->membershipService->getMembershipPrice($membershipDuration);
-            $this->paymentService->createPayment($member, $amount, $paymentMethod, $paymentNotes);
+            // Create payments: Registration fee + Membership fee
+            $this->createRegistrationPayment($member, $paymentMethod, $paymentNotes);
+            $this->createMembershipPayment($member, $membershipDuration, $paymentMethod, $paymentNotes);
 
             // Invalidate member caches
             CacheService::invalidateMemberCaches();
@@ -103,14 +103,13 @@ class MemberService
         return DB::transaction(function () use ($id, $data) {
             $member = Member::findOrFail($id);
             $originalExpDate = $member->exp_date;
+            $originalStatus = $member->status;
 
             // Update member data
             $member->update($data);
 
-            // Check if exp_date was changed and update member status accordingly
-            if (isset($data['exp_date']) && $data['exp_date'] !== $originalExpDate?->format('Y-m-d')) {
-                $this->updateMemberStatusBasedOnExpDate($member);
-            }
+            // Always check and update status based on exp_date after any update
+            $this->autoUpdateMemberStatus($member);
 
             // Invalidate member caches
             CacheService::invalidateMemberCaches();
@@ -163,9 +162,11 @@ class MemberService
             $baseDate = $currentExpDate->isFuture() ? $currentExpDate : $today;
             $newExpDate = $baseDate->addMonths($duration)->toDateString();
 
-            $updated = DB::table('members')
-                ->where('id', $memberId)
-                ->update(['exp_date' => $newExpDate]);
+            // Update exp_date
+            $member->update(['exp_date' => $newExpDate]);
+
+            // Auto-update status based on new exp_date
+            $this->autoUpdateMemberStatus($member);
 
             // Create new membership record for extension
             $this->membershipService->createMembershipExtension($member, $duration);
@@ -240,17 +241,77 @@ class MemberService
     {
         $today = Carbon::today();
         $expDate = Carbon::parse($member->exp_date);
+        $currentStatus = $member->status;
 
-        if ($expDate->isPast() && $member->status === \App\Enums\MemberStatus::ACTIVE) {
-            // Member expired but still marked as active - keep as active but log the change
-            // This allows manual reactivation if needed
+        // Determine what the status should be based on exp_date
+        $shouldBeActive = $expDate->isFuture() || $expDate->isToday();
+
+        if ($shouldBeActive && $currentStatus === \App\Enums\MemberStatus::INACTIVE) {
+            // Member should be active but is currently inactive - activate
             $member->update(['status' => \App\Enums\MemberStatus::ACTIVE]);
-        } elseif ($expDate->isFuture() && $member->status === \App\Enums\MemberStatus::INACTIVE) {
-            // Member has future exp_date but marked as inactive - could be reactivated
-            // Keep as inactive unless explicitly activated
+        } elseif (! $shouldBeActive && $currentStatus === \App\Enums\MemberStatus::ACTIVE) {
+            // Member should be inactive but is currently active - deactivate
+            $member->update(['status' => \App\Enums\MemberStatus::INACTIVE]);
         }
 
         return $member;
+    }
+
+    public function autoUpdateMemberStatus(Member $member): Member
+    {
+        return $this->updateMemberStatusBasedOnExpDate($member);
+    }
+
+    public function bulkUpdateMemberStatuses(): array
+    {
+        $today = Carbon::today();
+
+        // Get all members that need status update
+        $expiredActiveMembers = Member::where('status', \App\Enums\MemberStatus::ACTIVE)
+            ->where('exp_date', '<', $today)
+            ->get();
+
+        $activeInactiveMembers = Member::where('status', \App\Enums\MemberStatus::INACTIVE)
+            ->where('exp_date', '>=', $today)
+            ->get();
+
+        $updatedCount = 0;
+        $results = [];
+
+        // Update expired active members to inactive
+        foreach ($expiredActiveMembers as $member) {
+            $member->update(['status' => \App\Enums\MemberStatus::INACTIVE]);
+            $updatedCount++;
+            $results[] = [
+                'member_id' => $member->id,
+                'member_name' => $member->name,
+                'action' => 'deactivated',
+                'reason' => 'expired',
+            ];
+        }
+
+        // Update active inactive members to active
+        foreach ($activeInactiveMembers as $member) {
+            $member->update(['status' => \App\Enums\MemberStatus::ACTIVE]);
+            $updatedCount++;
+            $results[] = [
+                'member_id' => $member->id,
+                'member_name' => $member->name,
+                'action' => 'activated',
+                'reason' => 'not_expired',
+            ];
+        }
+
+        // Invalidate caches
+        CacheService::invalidateMemberCaches();
+        $this->dashboardService->invalidateDashboardCache();
+
+        return [
+            'total_updated' => $updatedCount,
+            'expired_to_inactive' => $expiredActiveMembers->count(),
+            'inactive_to_active' => $activeInactiveMembers->count(),
+            'details' => $results,
+        ];
     }
 
     public function getMemberExpirationStatus(Member $member): array
@@ -266,6 +327,51 @@ class MemberService
             'exp_date_formatted' => $expDate->format('d M Y'),
             'status' => $member->status,
         ];
+    }
+
+    private function createRegistrationPayment(Member $member, string $paymentMethod, ?string $paymentNotes = null): void
+    {
+        $registrationFee = 50000; // Biaya pendaftaran member baru
+        $this->paymentService->createPayment(
+            $member,
+            $registrationFee,
+            $paymentMethod,
+            $paymentNotes ? "Pendaftaran: {$paymentNotes}" : 'Biaya pendaftaran member baru'
+        );
+    }
+
+    private function createMembershipPayment(Member $member, int $membershipDuration, string $paymentMethod, ?string $paymentNotes = null): void
+    {
+        $membershipAmount = $this->membershipService->getMembershipPrice($membershipDuration);
+        $this->paymentService->createPayment(
+            $member,
+            $membershipAmount,
+            $paymentMethod,
+            $paymentNotes ? "Membership {$membershipDuration} bulan: {$paymentNotes}" : "Biaya membership {$membershipDuration} bulan"
+        );
+    }
+
+    public function getRegistrationFee(): int
+    {
+        return 50000; // Biaya pendaftaran member baru
+    }
+
+    public function getTotalRegistrationCost(int $membershipDuration): int
+    {
+        $registrationFee = $this->getRegistrationFee();
+        $membershipCost = $this->membershipService->getMembershipPrice($membershipDuration);
+
+        return $registrationFee + $membershipCost;
+    }
+
+    public function getAvailableMembershipDurations(): array
+    {
+        return $this->membershipService->getEnabledDurations();
+    }
+
+    public function validateMembershipDuration(int $duration): bool
+    {
+        return $this->membershipService->isDurationValid($duration);
     }
 
     private function generateMemberId(): string

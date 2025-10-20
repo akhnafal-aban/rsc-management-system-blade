@@ -29,6 +29,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/member/search', [MemberController::class, 'searchMembers'])->name('member.search');
     Route::get('/member/extend', [MemberController::class, 'extend'])->name('member.extend');
     Route::post('/member/extend', [MemberController::class, 'storeExtend'])->name('member.extend.store');
+    Route::post('/member/bulk-update-status', [MemberController::class, 'bulkUpdateStatuses'])->name('member.bulk-update-status');
     Route::resource('member', MemberController::class);
     Route::post('/member/{member}/suspend', [MemberController::class, 'suspend'])->name('member.suspend');
     Route::post('/member/{member}/activate', [MemberController::class, 'activate'])->name('member.activate');
@@ -51,3 +52,16 @@ Route::middleware('auth')->group(function () {
         Route::get('/staff-management', [StaffManagementController::class, 'index'])->name('admin.staff.index');
     });
 });
+
+// Error testing routes (only for development)
+// if (app()->environment('local', 'testing')) {
+//     Route::get('/test-error/{code}', function ($code) {
+//         $validCodes = [400, 403, 404, 419, 429, 500, 503];
+
+//         if (! in_array($code, $validCodes)) {
+//             abort(404, 'Error code not found');
+//         }
+
+//         abort((int) $code, 'Test error page');
+//     })->name('test.error');
+// }

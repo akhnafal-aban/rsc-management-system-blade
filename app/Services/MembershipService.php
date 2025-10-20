@@ -54,6 +54,52 @@ class MembershipService
         return Membership::getPriceForDuration($durationMonths);
     }
 
+    public function getAvailableDurations(): array
+    {
+        // Currently available durations - can be moved to config/settings in the future
+        return [
+            1 => [
+                'months' => 1,
+                'price' => 150000,
+                'label' => '1 Bulan',
+                'enabled' => true,
+            ],
+            3 => [
+                'months' => 3,
+                'price' => 400000,
+                'label' => '3 Bulan',
+                'enabled' => true,
+            ],
+            // Future durations can be added here and controlled by 'enabled' flag
+            // 6 => [
+            //     'months' => 6,
+            //     'price' => 750000,
+            //     'label' => '6 Bulan',
+            //     'enabled' => false,
+            // ],
+            // 12 => [
+            //     'months' => 12,
+            //     'price' => 1400000,
+            //     'label' => '12 Bulan',
+            //     'enabled' => false,
+            // ],
+        ];
+    }
+
+    public function getEnabledDurations(): array
+    {
+        return array_filter($this->getAvailableDurations(), function ($duration) {
+            return $duration['enabled'];
+        });
+    }
+
+    public function isDurationValid(int $durationMonths): bool
+    {
+        $availableDurations = $this->getAvailableDurations();
+
+        return isset($availableDurations[$durationMonths]) && $availableDurations[$durationMonths]['enabled'];
+    }
+
     private function generateMembershipData(Member $member, int $durationMonths): array
     {
         $startDate = Carbon::now()->startOfDay();

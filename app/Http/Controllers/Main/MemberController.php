@@ -53,8 +53,9 @@ class MemberController extends Controller
     {
         $validatedData = $request->validated();
 
-        // Get original exp_date for comparison
+        // Get original data for comparison
         $originalExpDate = $member->exp_date?->format('Y-m-d');
+        $originalStatus = $member->status;
         $newExpDate = $validatedData['exp_date'] ?? null;
 
         // Update member
@@ -67,9 +68,11 @@ class MemberController extends Controller
             $expirationStatus = $this->memberService->getMemberExpirationStatus($updatedMember);
 
             if ($expirationStatus['is_expired']) {
-                $message .= ' Perhatian: Member telah expired berdasarkan tanggal baru.';
+                $message .= ' Status member otomatis diubah menjadi tidak aktif karena telah expired.';
             } elseif ($expirationStatus['is_expiring_soon']) {
                 $message .= ' Peringatan: Member akan expired dalam '.$expirationStatus['days_until_expiry'].' hari.';
+            } else {
+                $message .= ' Status member otomatis diubah menjadi aktif karena belum expired.';
             }
         }
 
@@ -123,15 +126,26 @@ class MemberController extends Controller
     {
         $validated = $request->validated();
 
-        $member = $this->memberService->extendMembership(
+        // Get original status for comparison
+        $member = Member::findOrFail($validated['member_id']);
+        $originalStatus = $member->status;
+
+        $updatedMember = $this->memberService->extendMembership(
             (int) $validated['member_id'],
             (int) $validated['membership_duration'],
             $validated['payment_method'],
             $validated['payment_notes'] ?? null
         );
 
-        return redirect()->route('member.show', $member)
-            ->with('success', 'Membership berhasil diperpanjang.');
+        // Prepare success message
+        $message = 'Membership berhasil diperpanjang.';
+
+        if ($originalStatus === \App\Enums\MemberStatus::INACTIVE) {
+            $message .= ' Status member otomatis diubah menjadi aktif karena membership telah diperpanjang.';
+        }
+
+        return redirect()->route('member.show', $updatedMember)
+            ->with('success', $message);
     }
 
     public function getExpirationStatus(Member $member)
@@ -139,5 +153,33 @@ class MemberController extends Controller
         $expirationStatus = $this->memberService->getMemberExpirationStatus($member);
 
         return response()->json($expirationStatus);
+    }
+
+    public function bulkUpdateStatuses()
+    {
+        $result = $this->memberService->bulkUpdateMemberStatuses();
+
+        return response()->json([
+            'success' => true,
+            'message' => "Berhasil mengupdate status {$result['total_updated']} member",
+            'data' => $result,
+        ]);
+    }
+
+    public function getRegistrationCosts()
+    {
+        $registrationFee = $this->memberService->getRegistrationFee();
+        $availableDurations = $this->memberService->getAvailableMembershipDurations();
+
+        $membershipPrices = [];
+        foreach ($availableDurations as $duration) {
+            $membershipPrices[$duration['months']] = $this->memberService->getTotalRegistrationCost($duration['months']);
+        }
+
+        return response()->json([
+            'registration_fee' => $registrationFee,
+            'membership_prices' => $membershipPrices,
+            'available_durations' => $availableDurations,
+        ]);
     }
 }
