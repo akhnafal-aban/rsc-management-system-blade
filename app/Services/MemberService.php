@@ -377,7 +377,7 @@ class MemberService
     private function generateMemberId(): string
     {
         $prefix = '12-';
-        $lastMember = Member::orderBy('id', 'desc')->first();
+        $lastMember = Member::orderBy('member_code', 'desc')->first();
 
         if ($lastMember) {
             $lastId = (int) substr($lastMember->member_code, 3);
