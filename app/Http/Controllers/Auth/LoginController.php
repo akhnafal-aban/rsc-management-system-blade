@@ -44,7 +44,7 @@ class LoginController extends Controller
             $user = Auth::user();
             session()->flash('success', "Selamat datang Kak {$user->name}! Selamat Bekerja");
 
-            return redirect()->intended(route('dashboard'));
+            return redirect()->route('dashboard');
         }
 
         return back()->withErrors([
