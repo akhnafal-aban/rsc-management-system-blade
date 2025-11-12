@@ -68,7 +68,7 @@ class MemberController extends Controller
             $expirationStatus = $this->memberService->getMemberExpirationStatus($updatedMember);
 
             if ($expirationStatus['is_expired']) {
-                $message .= ' Status member otomatis diubah menjadi tidak aktif karena telah expired.';
+                $message .= ' Status member otomatis diubah menjadi expired karena telah expired.';
             } elseif ($expirationStatus['is_expiring_soon']) {
                 $message .= ' Peringatan: Member akan expired dalam '.$expirationStatus['days_until_expiry'].' hari.';
             } else {
@@ -140,7 +140,7 @@ class MemberController extends Controller
         // Prepare success message
         $message = 'Membership berhasil diperpanjang.';
 
-        if ($originalStatus === \App\Enums\MemberStatus::INACTIVE) {
+        if ($originalStatus === \App\Enums\MemberStatus::INACTIVE || $originalStatus === \App\Enums\MemberStatus::EXPIRED) {
             $message .= ' Status member otomatis diubah menjadi aktif karena membership telah diperpanjang.';
         }
 

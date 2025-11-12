@@ -146,13 +146,13 @@ class DashboardService
 
     private function getMemberDistributionData(): array
     {
-        $activeMembers = (int) Member::active()->count();
-        $inactiveMembers = (int) Member::inactive()->count();
-        $expiredMembers = (int) Member::expired()->count();
+        $activeMembers = (int) Member::where('status', \App\Enums\MemberStatus::ACTIVE)->count();
+        $expiredMembers = (int) Member::where('status', \App\Enums\MemberStatus::EXPIRED)->count();
+        $inactiveMembers = (int) Member::where('status', \App\Enums\MemberStatus::INACTIVE)->count();
 
         return [
-            'labels' => ['Aktif', 'Tidak Aktif', 'Kedaluwarsa'],
-            'data' => [$activeMembers, $inactiveMembers, $expiredMembers],
+            'labels' => ['Aktif', 'Expired', 'Tidak Aktif'],
+            'data' => [$activeMembers, $expiredMembers, $inactiveMembers],
             'colors' => ['#10B981', '#F59E0B', '#EF4444'],
         ];
     }
@@ -210,11 +210,11 @@ class DashboardService
         $startOfLastMonth = Carbon::now()->subMonth()->startOfMonth();
         $endOfLastMonth = Carbon::now()->subMonth()->endOfMonth();
 
-        $currentCount = Member::active()
+        $currentCount = Member::where('status', \App\Enums\MemberStatus::ACTIVE)
             ->whereMonth('created_at', Carbon::now()->month)
             ->count();
 
-        $lastMonthCount = Member::active()
+        $lastMonthCount = Member::where('status', \App\Enums\MemberStatus::ACTIVE)
             ->whereBetween('created_at', [$startOfLastMonth, $endOfLastMonth])
             ->count();
 
@@ -378,7 +378,7 @@ class DashboardService
 
     private function getInactiveMembersAlert(): string
     {
-        $inactiveCount = Member::active()
+        $inactiveCount = Member::where('status', \App\Enums\MemberStatus::ACTIVE)
             ->where('last_check_in', '<', Carbon::now()->subDays(7))
             ->count();
 

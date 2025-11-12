@@ -96,19 +96,21 @@ class CacheService
     {
         try {
             $cacheStore = Cache::getStore();
-
-            // Only perform pattern flushing on Redis cache store
+            
             if (method_exists($cacheStore, 'getRedis')) {
                 $redis = $cacheStore->getRedis();
-                $keys = $redis->keys($pattern);
-
-                if (! empty($keys)) {
-                    $redis->del($keys);
-                }
-            } else {
-                // For non-Redis drivers, we can't flush by pattern
-                // This is expected behavior for database/file cache drivers
-                logger()->debug('Cache pattern flushing not available for current cache driver: '.get_class($cacheStore));
+                
+                // Gunakan SCAN instead of KEYS untuk performa yang lebih baik
+                $cursor = 0;
+                do {
+                    $result = $redis->scan($cursor, ['match' => $pattern, 'count' => 100]);
+                    $cursor = $result[0];
+                    $keys = $result[1];
+                    
+                    if (!empty($keys)) {
+                        $redis->del($keys);
+                    }
+                } while ($cursor !== 0);
             }
         } catch (\Throwable $e) {
             logger()->warning('Failed to flush cache pattern: '.$e->getMessage());

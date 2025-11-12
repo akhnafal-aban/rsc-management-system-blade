@@ -35,19 +35,16 @@ class MemberService
         }
 
         if (! empty($filters['status'])) {
-            if ($filters['status'] === 'INACTIVE') {
-                // INACTIVE includes both manually suspended AND expired members
-                $query->where(function ($q) {
-                    $q->where('status', 'INACTIVE')
-                        ->orWhere(function ($sq) {
-                            $sq->where('status', 'ACTIVE')
-                                ->whereDate('exp_date', '<', Carbon::today());
-                        });
-                });
-            } else {
+            if ($filters['status'] === 'ACTIVE') {
                 // ACTIVE means active and not expired
-                $query->where('status', $filters['status'])
+                $query->where('status', 'ACTIVE')
                     ->whereDate('exp_date', '>=', Carbon::today());
+            } elseif ($filters['status'] === 'EXPIRED') {
+                // EXPIRED means recently expired (less than 3 months)
+                $query->where('status', 'EXPIRED');
+            } elseif ($filters['status'] === 'INACTIVE') {
+                // INACTIVE means expired more than 3 months ago
+                $query->where('status', 'INACTIVE');
             }
         }
 
@@ -243,14 +240,19 @@ class MemberService
         $expDate = Carbon::parse($member->exp_date);
         $currentStatus = $member->status;
 
-        // Determine what the status should be based on exp_date
+        // Determine what the status should be based on exp_date and activity
         $shouldBeActive = $expDate->isFuture() || $expDate->isToday();
+        $shouldBeExpired = !$shouldBeActive && $expDate->diffInMonths($today) < 3;
+        $shouldBeInactive = !$shouldBeActive && $expDate->diffInMonths($today) >= 3;
 
-        if ($shouldBeActive && $currentStatus === \App\Enums\MemberStatus::INACTIVE) {
-            // Member should be active but is currently inactive - activate
+        if ($shouldBeActive && $currentStatus !== \App\Enums\MemberStatus::ACTIVE) {
+            // Member should be active - activate
             $member->update(['status' => \App\Enums\MemberStatus::ACTIVE]);
-        } elseif (! $shouldBeActive && $currentStatus === \App\Enums\MemberStatus::ACTIVE) {
-            // Member should be inactive but is currently active - deactivate
+        } elseif ($shouldBeExpired && $currentStatus !== \App\Enums\MemberStatus::EXPIRED) {
+            // Member should be expired - set to expired
+            $member->update(['status' => \App\Enums\MemberStatus::EXPIRED]);
+        } elseif ($shouldBeInactive && $currentStatus !== \App\Enums\MemberStatus::INACTIVE) {
+            // Member should be inactive - set to inactive
             $member->update(['status' => \App\Enums\MemberStatus::INACTIVE]);
         }
 
@@ -265,41 +267,41 @@ class MemberService
     public function bulkUpdateMemberStatuses(): array
     {
         $today = Carbon::today();
-
-        // Get all members that need status update
-        $expiredActiveMembers = Member::where('status', \App\Enums\MemberStatus::ACTIVE)
-            ->where('exp_date', '<', $today)
-            ->get();
-
-        $activeInactiveMembers = Member::where('status', \App\Enums\MemberStatus::INACTIVE)
-            ->where('exp_date', '>=', $today)
-            ->get();
+        $threeMonthsAgo = $today->copy()->subMonths(3);
 
         $updatedCount = 0;
         $results = [];
 
-        // Update expired active members to inactive
-        foreach ($expiredActiveMembers as $member) {
-            $member->update(['status' => \App\Enums\MemberStatus::INACTIVE]);
-            $updatedCount++;
-            $results[] = [
-                'member_id' => $member->id,
-                'member_name' => $member->name,
-                'action' => 'deactivated',
-                'reason' => 'expired',
-            ];
-        }
+        // Get all members that need status update
+        $allMembers = Member::all();
 
-        // Update active inactive members to active
-        foreach ($activeInactiveMembers as $member) {
-            $member->update(['status' => \App\Enums\MemberStatus::ACTIVE]);
-            $updatedCount++;
-            $results[] = [
-                'member_id' => $member->id,
-                'member_name' => $member->name,
-                'action' => 'activated',
-                'reason' => 'not_expired',
-            ];
+        foreach ($allMembers as $member) {
+            $expDate = Carbon::parse($member->exp_date);
+            $currentStatus = $member->status;
+            $newStatus = null;
+
+            // Determine new status based on expiration date
+            if ($expDate->isFuture() || $expDate->isToday()) {
+                $newStatus = \App\Enums\MemberStatus::ACTIVE;
+            } elseif ($expDate->diffInMonths($today) < 3) {
+                $newStatus = \App\Enums\MemberStatus::EXPIRED;
+            } else {
+                $newStatus = \App\Enums\MemberStatus::INACTIVE;
+            }
+
+            // Update status if different
+            if ($currentStatus !== $newStatus) {
+                $member->update(['status' => $newStatus]);
+                $updatedCount++;
+                
+                $results[] = [
+                    'member_id' => $member->id,
+                    'member_name' => $member->name,
+                    'old_status' => $currentStatus->value,
+                    'new_status' => $newStatus->value,
+                    'reason' => $this->getStatusChangeReason($currentStatus, $newStatus, $expDate, $today),
+                ];
+            }
         }
 
         // Invalidate caches
@@ -308,10 +310,21 @@ class MemberService
 
         return [
             'total_updated' => $updatedCount,
-            'expired_to_inactive' => $expiredActiveMembers->count(),
-            'inactive_to_active' => $activeInactiveMembers->count(),
             'details' => $results,
         ];
+    }
+
+    private function getStatusChangeReason($oldStatus, $newStatus, $expDate, $today): string
+    {
+        if ($newStatus === \App\Enums\MemberStatus::ACTIVE) {
+            return 'Membership renewed or extended';
+        } elseif ($newStatus === \App\Enums\MemberStatus::EXPIRED) {
+            return 'Membership expired recently';
+        } elseif ($newStatus === \App\Enums\MemberStatus::INACTIVE) {
+            return 'Membership expired more than 3 months ago';
+        }
+        
+        return 'Status updated';
     }
 
     public function getMemberExpirationStatus(Member $member): array

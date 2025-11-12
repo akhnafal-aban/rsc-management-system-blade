@@ -56,6 +56,30 @@ Schedule::command('memberships:expire')
         );
     });
 
+// Schedule member status update to run daily at 01:00
+Schedule::command('members:update-status')
+    ->dailyAt('01:00')
+    ->withoutOverlapping()
+    ->runInBackground()
+    ->onSuccess(function () {
+        Log::info('Member status update completed successfully');
+        
+        NotificationController::addCommandNotification(
+            'Member Status Update',
+            'success',
+            'Member statuses have been updated successfully'
+        );
+    })
+    ->onFailure(function () {
+        Log::error('Member status update failed');
+        
+        NotificationController::addCommandNotification(
+            'Member Status Update',
+            'failed',
+            'Member status update failed'
+        );
+    });
+
 // Test command for notifications - runs every 30 seconds for testing
 // Schedule::command('test:notification')
 //     ->everyThirtySeconds()

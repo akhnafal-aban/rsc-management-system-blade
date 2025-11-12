@@ -48,8 +48,8 @@
                         class="w-full sm:w-auto px-4 py-2 mb-1 bg-input border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent">
                         <option value="">Semua Status</option>
                         <option value="ACTIVE" {{ request('status') === 'ACTIVE' ? 'selected' : '' }}>Aktif</option>
-                        <option value="INACTIVE" {{ request('status') === 'INACTIVE' ? 'selected' : '' }}>Tidak Aktif
-                        </option>
+                        <option value="EXPIRED" {{ request('status') === 'EXPIRED' ? 'selected' : '' }}>Expired</option>
+                        <option value="INACTIVE" {{ request('status') === 'INACTIVE' ? 'selected' : '' }}>Tidak Aktif</option>
                     </select>
 
                     <button type="submit"
@@ -105,15 +105,13 @@
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     @if ($member->status->value === 'ACTIVE')
-                                        @if ($isExpired)
-                                            <span
-                                                class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">
-                                                Aktif (Expired)
-                                            </span>
-                                        @else
-                                            <span
-                                                class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-chart-2/20 text-chart-2">Aktif</span>
-                                        @endif
+                                        <span
+                                            class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-chart-2/20 text-chart-2">Aktif</span>
+                                    @elseif ($member->status->value === 'EXPIRED')
+                                        <span
+                                            class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">
+                                            Expired
+                                        </span>
                                     @else
                                         <span
                                             class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-destructive/20 text-destructive">Tidak
@@ -198,12 +196,12 @@
                     @php
                         $isExpired = $member->exp_date < now()->toDateString();
                         $statusColor = $isExpired ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700';
-                        $statusText =
-                            $member->status->value === 'ACTIVE'
-                                ? ($isExpired
-                                    ? 'Aktif (Expired)'
-                                    : 'Aktif')
-                                : 'Tidak Aktif';
+                        $statusText = match($member->status->value) {
+                            'ACTIVE' => 'Aktif',
+                            'EXPIRED' => 'Expired',
+                            'INACTIVE' => 'Tidak Aktif',
+                            default => 'Tidak Aktif'
+                        };
                     @endphp
 
                     <div class="mb-3 rounded-lg border border-border bg-card shadow-sm transition-all hover:shadow-md">
@@ -219,13 +217,13 @@
                             <div class="grid grid-cols-2 gap-2 mb-3">
                                 <div class="bg-muted/25 rounded p-2">
                                     <p class="text-xs text-muted-foreground mb-0.5">Status</p>
-                                    <p class="text-xs font-medium {{ $isExpired ? 'text-red-200' : 'text-green-200' }}">
+                                    <p class="text-xs font-medium {{ $member->status->value === 'ACTIVE' ? 'text-green-200' : ($member->status->value === 'EXPIRED' ? 'text-orange-200' : 'text-red-200') }}">
                                         {{ $statusText }}
                                     </p>
                                 </div>
                                 <div class="bg-muted/25 rounded p-2">
                                     <p class="text-xs text-muted-foreground mb-0.5">Exp Date</p>
-                                    <p class="text-xs font-medium {{ $isExpired ? 'text-red-200' : 'text-green-200' }}">
+                                    <p class="text-xs font-medium {{ $member->status->value === 'ACTIVE' ? 'text-green-200' : ($member->status->value === 'EXPIRED' ? 'text-orange-200' : 'text-red-200') }}">
                                         {{ \Carbon\Carbon::parse($member->exp_date)->format('d M Y') }}
                                     </p>
                                 </div>
