@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Enums\MemberStatus;
+use App\Http\Controllers\NotificationController;
 use App\Models\Member;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class ExpireMemberships extends Command
@@ -44,12 +44,15 @@ class ExpireMemberships extends Command
         // }
 
         // Langsung proses tanpa konfirmasi (non-interactive mode)
-        $expiredMemberNames = [];
-
         foreach ($expiredMembers as $member) {
             try {
                 $member->update(['status' => MemberStatus::INACTIVE]);
-                $expiredMemberNames[] = $member->name;
+                NotificationController::addCommandNotification(
+                    'Membership Expiration Check',
+                    'success',
+                    null,
+                    $member->name
+                );
 
                 Log::info("Expired membership for member: {$member->name} ({$member->member_code})");
             } catch (\Exception $e) {
@@ -58,13 +61,16 @@ class ExpireMemberships extends Command
             }
         }
 
-        // Store expired member info for notification
-        if (! empty($expiredMemberNames)) {
-            Cache::put('last_expired_members', $expiredMemberNames, now()->addHours(1));
+        if ($expiredMembers->isEmpty()) {
+            NotificationController::addCommandNotification(
+                'Membership Expiration Check',
+                'success',
+                'Tidak ada keanggotaan yang expired hari ini'
+            );
         }
 
-        $this->info('Successfully expired ' . count($expiredMemberNames) . ' memberships.');
-        Log::info('Membership expiration completed. Expired ' . count($expiredMemberNames) . ' memberships.');
+        $this->info('Successfully expired '.$expiredMembers->count().' memberships.');
+        Log::info('Membership expiration completed. Expired '.$expiredMembers->count().' memberships.');
 
         return Command::SUCCESS;
     }

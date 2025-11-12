@@ -5,10 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\Attendance;
-use App\Models\Member;
-use App\Models\Payment;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class DashboardService
@@ -25,61 +22,60 @@ class DashboardService
 
     private function getStats(): array
     {
-        $cacheKey = 'dashboard_stats_'.now()->format('Y-m-d-H');
+        $today = Carbon::today();
+        $startOfMonth = $today->copy()->startOfMonth();
+        $endOfMonth = $today->copy()->endOfMonth();
+        $startOfWeek = Carbon::now()->startOfWeek();
+        $endOfWeek = Carbon::now()->endOfWeek();
 
-        return Cache::remember($cacheKey, CacheService::CACHE_TTL_SHORT, function () {
-            $today = Carbon::today();
-            $startOfMonth = $today->copy()->startOfMonth();
-            $endOfMonth = $today->copy()->endOfMonth();
-            $startOfWeek = Carbon::now()->startOfWeek();
-            $endOfWeek = Carbon::now()->endOfWeek();
+        $sql = <<<'SQL'
+SELECT
+    COUNT(CASE WHEN status = ? THEN 1 END) AS active_members,
+    (SELECT COUNT(*) FROM attendances WHERE DATE(check_in_time) = ?) AS today_checkins,
+    (SELECT COUNT(*) FROM attendances WHERE check_in_time BETWEEN ? AND ?) AS weekly_attendance,
+    (SELECT COALESCE(SUM(amount), 0) FROM payments WHERE created_at BETWEEN ? AND ?) AS monthly_revenue
+FROM members
+SQL;
 
-            // Single optimized query untuk semua stats
-            $stats = DB::table('members')
-                ->selectRaw('
-                    COUNT(CASE WHEN status = ? THEN 1 END) as active_members,
-                    (SELECT COUNT(*) FROM attendances WHERE DATE(check_in_time) = ?) as today_checkins,
-                    (SELECT COUNT(*) FROM attendances WHERE check_in_time BETWEEN ? AND ?) as weekly_attendance,
-                    (SELECT COALESCE(SUM(amount), 0) FROM payments WHERE created_at BETWEEN ? AND ?) as monthly_revenue
-                ', [
-                    \App\Enums\MemberStatus::ACTIVE,
-                    $today->format('Y-m-d'),
-                    $startOfWeek,
-                    $endOfWeek,
-                    $startOfMonth,
-                    $endOfMonth,
-                ])
-                ->first();
+        $stats = DB::selectOne($sql, [
+            \App\Enums\MemberStatus::ACTIVE->value,
+            $today->format('Y-m-d'),
+            $startOfWeek,
+            $endOfWeek,
+            $startOfMonth,
+            $endOfMonth,
+        ]);
 
-            $weeklyAverage = $stats->weekly_attendance > 0 ? round($stats->weekly_attendance / 7) : 0;
+        $weeklyAttendance = (int) ($stats->weekly_attendance ?? 0);
+        $weeklyAverage = $weeklyAttendance > 0 ? (int) round($weeklyAttendance / 7) : 0;
+        $monthlyRevenue = (float) ($stats->monthly_revenue ?? 0);
 
-            return [
-                [
-                    'title' => 'Member Aktif',
-                    'value' => (int) $stats->active_members,
-                    'change' => $this->getMemberGrowthPercentage(),
-                    'icon' => 'users',
-                ],
-                [
-                    'title' => 'Check-in Hari Ini',
-                    'value' => (int) $stats->today_checkins,
-                    'change' => $this->getTodayAttendanceChange(),
-                    'icon' => 'user-check',
-                ],
-                [
-                    'title' => 'Rata-rata Mingguan',
-                    'value' => $weeklyAverage,
-                    'change' => $this->getWeeklyTrend(),
-                    'icon' => 'trending-up',
-                ],
-                [
-                    'title' => 'Pendapatan Bulanan',
-                    'value' => 'Rp '.number_format((float) $stats->monthly_revenue, 0, ',', '.'),
-                    'change' => $this->getRevenueGrowthPercentage($startOfMonth, $endOfMonth),
-                    'icon' => 'dollar-sign',
-                ],
-            ];
-        });
+        return [
+            [
+                'title' => 'Member Aktif',
+                'value' => (int) ($stats->active_members ?? 0),
+                'change' => $this->getMemberGrowthPercentage(),
+                'icon' => 'users',
+            ],
+            [
+                'title' => 'Check-in Hari Ini',
+                'value' => (int) ($stats->today_checkins ?? 0),
+                'change' => $this->getTodayAttendanceChange(),
+                'icon' => 'user-check',
+            ],
+            [
+                'title' => 'Rata-rata Mingguan',
+                'value' => $weeklyAverage,
+                'change' => $this->getWeeklyTrend(),
+                'icon' => 'trending-up',
+            ],
+            [
+                'title' => 'Pendapatan Bulanan',
+                'value' => 'Rp '.number_format($monthlyRevenue, 0, ',', '.'),
+                'change' => $this->getRevenueGrowthPercentage($startOfMonth, $endOfMonth),
+                'icon' => 'dollar-sign',
+            ],
+        ];
     }
 
     private function getRecentActivities(): array
@@ -100,15 +96,11 @@ class DashboardService
 
     private function getChartData(): array
     {
-        $cacheKey = 'dashboard_charts_'.now()->format('Y-m-d-H');
-
-        return Cache::remember($cacheKey, CacheService::CACHE_TTL_MEDIUM, function () {
-            return [
-                'weekly_trend' => $this->getWeeklyTrendData(),
-                'member_distribution' => $this->getMemberDistributionData(),
-                'daily_activity' => $this->getDailyActivityData(),
-            ];
-        });
+        return [
+            'weekly_trend' => $this->getWeeklyTrendData(),
+            'member_distribution' => $this->getMemberDistributionData(),
+            'daily_activity' => $this->getDailyActivityData(),
+        ];
     }
 
     private function getWeeklyTrendData(): array
@@ -116,14 +108,17 @@ class DashboardService
         $startOfWeek = Carbon::now()->startOfWeek();
         $endOfWeek = Carbon::now()->endOfWeek();
 
-        // Single optimized query untuk semua data mingguan
-        $weeklyData = DB::table('attendances')
-            ->selectRaw('DATE(check_in_time) as date, COUNT(*) as count')
-            ->whereBetween('check_in_time', [$startOfWeek, $endOfWeek])
-            ->groupBy('date')
-            ->orderBy('date')
-            ->get()
-            ->keyBy('date');
+        $sql = <<<'SQL'
+SELECT
+    DATE(check_in_time) AS date,
+    COUNT(*) AS count
+FROM attendances
+WHERE check_in_time BETWEEN ? AND ?
+GROUP BY DATE(check_in_time)
+ORDER BY DATE(check_in_time)
+SQL;
+
+        $weeklyData = collect(DB::select($sql, [$startOfWeek, $endOfWeek]))->keyBy('date');
 
         $data = [];
         $labels = [];
@@ -146,13 +141,37 @@ class DashboardService
 
     private function getMemberDistributionData(): array
     {
-        $activeMembers = (int) Member::where('status', \App\Enums\MemberStatus::ACTIVE)->count();
-        $expiredMembers = (int) Member::where('status', \App\Enums\MemberStatus::EXPIRED)->count();
-        $inactiveMembers = (int) Member::where('status', \App\Enums\MemberStatus::INACTIVE)->count();
+        $sql = <<<'SQL'
+SELECT status, COUNT(*) AS total
+FROM members
+WHERE status IN (?, ?, ?)
+GROUP BY status
+SQL;
+
+        $rows = DB::select($sql, [
+            \App\Enums\MemberStatus::ACTIVE->value,
+            \App\Enums\MemberStatus::EXPIRED->value,
+            \App\Enums\MemberStatus::INACTIVE->value,
+        ]);
+
+        $counts = [
+            \App\Enums\MemberStatus::ACTIVE->value => 0,
+            \App\Enums\MemberStatus::EXPIRED->value => 0,
+            \App\Enums\MemberStatus::INACTIVE->value => 0,
+        ];
+
+        foreach ($rows as $row) {
+            $status = $row->status;
+            $counts[$status] = (int) $row->total;
+        }
 
         return [
             'labels' => ['Aktif', 'Expired', 'Tidak Aktif'],
-            'data' => [$activeMembers, $expiredMembers, $inactiveMembers],
+            'data' => [
+                $counts[\App\Enums\MemberStatus::ACTIVE->value],
+                $counts[\App\Enums\MemberStatus::EXPIRED->value],
+                $counts[\App\Enums\MemberStatus::INACTIVE->value],
+            ],
             'colors' => ['#10B981', '#F59E0B', '#EF4444'],
         ];
     }
@@ -161,7 +180,8 @@ class DashboardService
     {
         $today = Carbon::today();
         $target = 100; // Target harian
-        $current = (int) Attendance::whereDate('check_in_time', $today)->count();
+        $sql = 'SELECT COUNT(*) AS total FROM attendances WHERE DATE(check_in_time) = ?';
+        $current = (int) (DB::selectOne($sql, [$today->format('Y-m-d')])->total ?? 0);
         $percentage = $target > 0 ? round(($current / $target) * 100, 1) : 0;
 
         return [
@@ -173,50 +193,69 @@ class DashboardService
 
     private function getManagerInsights(): array
     {
-        $cacheKey = 'dashboard_insights_'.now()->format('Y-m-d-H');
-
-        return Cache::remember($cacheKey, CacheService::CACHE_TTL_MEDIUM, function () {
-            return [
-                [
-                    'title' => 'Member dengan Aktivitas Tertinggi',
-                    'content' => $this->getTopActiveMember(),
-                    'type' => 'success',
-                    'icon' => 'icon-trophy',
-                ],
-                [
-                    'title' => 'Jam Puncak Kunjungan',
-                    'content' => $this->getPeakHours(),
-                    'type' => 'info',
-                    'icon' => 'icon-clock',
-                ],
-                [
-                    'title' => 'Member yang Perlu Diperhatikan',
-                    'content' => $this->getInactiveMembersAlert(),
-                    'type' => 'warning',
-                    'icon' => 'icon-alert-triangle',
-                ],
-                [
-                    'title' => 'Pendapatan vs Target',
-                    'content' => $this->getRevenueTargetStatus(),
-                    'type' => 'success',
-                    'icon' => 'icon-trending-up',
-                ],
-            ];
-        });
+        return [
+            [
+                'title' => 'Member dengan Aktivitas Tertinggi',
+                'content' => $this->getTopActiveMember(),
+                'type' => 'success',
+                'icon' => 'icon-trophy',
+            ],
+            [
+                'title' => 'Jam Puncak Kunjungan',
+                'content' => $this->getPeakHours(),
+                'type' => 'info',
+                'icon' => 'icon-clock',
+            ],
+            [
+                'title' => 'Member yang Perlu Diperhatikan',
+                'content' => $this->getInactiveMembersAlert(),
+                'type' => 'warning',
+                'icon' => 'icon-alert-triangle',
+            ],
+            [
+                'title' => 'Pendapatan vs Target',
+                'content' => $this->getRevenueTargetStatus(),
+                'type' => 'success',
+                'icon' => 'icon-trending-up',
+            ],
+        ];
     }
 
     private function getMemberGrowthPercentage(): ?array
     {
+        $currentMonthStart = Carbon::now()->startOfMonth();
+        $currentMonthEnd = Carbon::now()->endOfMonth();
         $startOfLastMonth = Carbon::now()->subMonth()->startOfMonth();
         $endOfLastMonth = Carbon::now()->subMonth()->endOfMonth();
 
-        $currentCount = Member::where('status', \App\Enums\MemberStatus::ACTIVE)
-            ->whereMonth('created_at', Carbon::now()->month)
-            ->count();
+        $currentCountSql = <<<'SQL'
+SELECT COUNT(*) AS total
+FROM members
+WHERE status = ?
+  AND created_at BETWEEN ? AND ?
+SQL;
 
-        $lastMonthCount = Member::where('status', \App\Enums\MemberStatus::ACTIVE)
-            ->whereBetween('created_at', [$startOfLastMonth, $endOfLastMonth])
-            ->count();
+        $currentCountResult = DB::selectOne($currentCountSql, [
+            \App\Enums\MemberStatus::ACTIVE->value,
+            $currentMonthStart,
+            $currentMonthEnd,
+        ]);
+
+        $lastMonthCountSql = <<<'SQL'
+SELECT COUNT(*) AS total
+FROM members
+WHERE status = ?
+  AND created_at BETWEEN ? AND ?
+SQL;
+
+        $lastMonthCountResult = DB::selectOne($lastMonthCountSql, [
+            \App\Enums\MemberStatus::ACTIVE->value,
+            $startOfLastMonth,
+            $endOfLastMonth,
+        ]);
+
+        $currentCount = (int) ($currentCountResult->total ?? 0);
+        $lastMonthCount = (int) ($lastMonthCountResult->total ?? 0);
 
         if ($lastMonthCount === 0) {
             if ($currentCount > 0) {
@@ -251,8 +290,11 @@ class DashboardService
         $today = Carbon::today();
         $yesterday = Carbon::yesterday();
 
-        $todayCount = Attendance::whereDate('check_in_time', $today)->count();
-        $yesterdayCount = Attendance::whereDate('check_in_time', $yesterday)->count();
+        $todaySql = 'SELECT COUNT(*) AS total FROM attendances WHERE DATE(check_in_time) = ?';
+        $yesterdaySql = 'SELECT COUNT(*) AS total FROM attendances WHERE DATE(check_in_time) = ?';
+
+        $todayCount = (int) (DB::selectOne($todaySql, [$today->format('Y-m-d')])->total ?? 0);
+        $yesterdayCount = (int) (DB::selectOne($yesterdaySql, [$yesterday->format('Y-m-d')])->total ?? 0);
 
         // Tidak ada data pembanding
         if ($yesterdayCount === 0) {
@@ -285,15 +327,14 @@ class DashboardService
 
     private function getWeeklyTrend(): ?array
     {
-        $thisWeek = Attendance::whereBetween('check_in_time', [
-            Carbon::now()->startOfWeek(),
-            Carbon::now()->endOfWeek(),
-        ])->count();
+        $thisWeekSql = 'SELECT COUNT(*) AS total FROM attendances WHERE check_in_time BETWEEN ? AND ?';
+        $lastWeekSql = 'SELECT COUNT(*) AS total FROM attendances WHERE check_in_time BETWEEN ? AND ?';
 
-        $lastWeek = Attendance::whereBetween('check_in_time', [
-            Carbon::now()->subWeek()->startOfWeek(),
-            Carbon::now()->subWeek()->endOfWeek(),
-        ])->count();
+        $thisWeekRange = [Carbon::now()->startOfWeek(), Carbon::now()->endOfWeek()];
+        $lastWeekRange = [Carbon::now()->subWeek()->startOfWeek(), Carbon::now()->subWeek()->endOfWeek()];
+
+        $thisWeek = (int) (DB::selectOne($thisWeekSql, $thisWeekRange)->total ?? 0);
+        $lastWeek = (int) (DB::selectOne($lastWeekSql, $lastWeekRange)->total ?? 0);
 
         if ($lastWeek === 0) {
             return null;
@@ -309,8 +350,9 @@ class DashboardService
 
     private function getMonthlyRevenue(Carbon $startOfMonth, Carbon $endOfMonth): float
     {
-        return (float) Payment::whereBetween('created_at', [$startOfMonth, $endOfMonth])
-            ->sum('amount');
+        $sql = 'SELECT COALESCE(SUM(amount), 0) AS total FROM payments WHERE created_at BETWEEN ? AND ?';
+
+        return (float) (DB::selectOne($sql, [$startOfMonth, $endOfMonth])->total ?? 0.0);
     }
 
     private function getRevenueGrowthPercentage(Carbon $startOfMonth, Carbon $endOfMonth): ?array
@@ -356,31 +398,64 @@ class DashboardService
 
     private function getTopActiveMember(): string
     {
-        $member = Member::withCount('attendances')
-            ->orderBy('attendances_count', 'desc')
-            ->first();
+        $sql = <<<'SQL'
+SELECT members.name AS member_name, COUNT(attendances.id) AS total_visits
+FROM attendances
+INNER JOIN members ON attendances.member_id = members.id
+GROUP BY members.id, members.name
+ORDER BY total_visits DESC
+LIMIT 1
+SQL;
 
-        return $member ? $member->name.' ('.$member->attendances_count.' kali kunjungan)' : 'Belum ada data';
+        $result = DB::selectOne($sql);
+
+        return $result
+            ? $result->member_name.' ('.$result->total_visits.' kali kunjungan)'
+            : 'Belum ada data';
     }
 
     private function getPeakHours(): string
     {
-        // Optimized query dengan database-agnostic approach
-        $peakHour = DB::table('attendances')
-            ->selectRaw('HOUR(check_in_time) as hour, COUNT(*) as count')
-            ->where('check_in_time', '>=', now()->subDays(30))
-            ->groupBy('hour')
-            ->orderByDesc('count')
-            ->first();
+        $driver = DB::getDriverName();
 
-        return $peakHour ? $peakHour->hour.':00 - '.(intval($peakHour->hour) + 1).':00' : 'Belum ada data';
+        $hourExpression = match ($driver) {
+            'sqlite' => "CAST(strftime('%H', check_in_time) AS INTEGER)",
+            'pgsql' => 'EXTRACT(HOUR FROM check_in_time)',
+            default => 'HOUR(check_in_time)',
+        };
+
+        $sql = <<<SQL
+SELECT {$hourExpression} AS hour, COUNT(*) AS total
+FROM attendances
+WHERE check_in_time >= ?
+GROUP BY {$hourExpression}
+ORDER BY total DESC
+LIMIT 1
+SQL;
+
+        $peakHour = DB::selectOne($sql, [now()->subDays(30)]);
+
+        return $peakHour
+            ? $peakHour->hour.':00 - '.((int) $peakHour->hour + 1).':00'
+            : 'Belum ada data';
     }
 
     private function getInactiveMembersAlert(): string
     {
-        $inactiveCount = Member::where('status', \App\Enums\MemberStatus::ACTIVE)
-            ->where('last_check_in', '<', Carbon::now()->subDays(7))
-            ->count();
+        $threshold = Carbon::now()->subDays(7);
+
+        $sql = <<<'SQL'
+SELECT COUNT(*) AS total
+FROM members
+WHERE status = ?
+  AND last_check_in IS NOT NULL
+  AND last_check_in < ?
+SQL;
+
+        $inactiveCount = (int) (DB::selectOne($sql, [
+            \App\Enums\MemberStatus::ACTIVE->value,
+            $threshold,
+        ])->total ?? 0);
 
         return $inactiveCount > 0 ? $inactiveCount.' member belum check-in selama 7 hari terakhir' : 'Semua member aktif';
     }
@@ -396,37 +471,5 @@ class DashboardService
         $percentage = ($currentRevenue / $target) * 100;
 
         return 'Rp '.number_format($currentRevenue, 0, ',', '.').' / Rp '.number_format($target, 0, ',', '.').' ('.number_format($percentage, 1).'%)';
-    }
-
-    /**
-     * Invalidate dashboard cache when data changes
-     */
-    public function invalidateDashboardCache(): void
-    {
-        $today = now()->format('Y-m-d-H');
-
-        $cacheKeys = [
-            'dashboard_data_'.$today,
-            'dashboard_stats_'.$today,
-            'dashboard_charts_'.$today,
-            'dashboard_insights_'.$today,
-        ];
-
-        foreach ($cacheKeys as $key) {
-            Cache::forget($key);
-        }
-
-        // Also clear previous hour cache in case of edge cases
-        $previousHour = now()->subHour()->format('Y-m-d-H');
-        $previousCacheKeys = [
-            'dashboard_data_'.$previousHour,
-            'dashboard_stats_'.$previousHour,
-            'dashboard_charts_'.$previousHour,
-            'dashboard_insights_'.$previousHour,
-        ];
-
-        foreach ($previousCacheKeys as $key) {
-            Cache::forget($key);
-        }
     }
 }

@@ -1,6 +1,7 @@
 import './bootstrap';
 import { Chart, registerables } from 'chart.js';
 import './notifications.js';
+import './checkin.js';
 import '../images/rsc_logo.png'
 
 

@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Main;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\BatchCheckInRequest;
 use App\Services\AttendanceService;
 use App\Services\MemberService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -49,15 +51,16 @@ class AttendanceController extends Controller
             return redirect()->back()->with('error', 'Member tidak ditemukan');
         }
 
-        // Simple validation - just check for duplicate check-in today
-        $duplicateCheck = $this->attendanceService->canCheckIn($member);
-
-        if (! $duplicateCheck['can_checkin']) {
-            return redirect()->back()->with('error', $duplicateCheck['message']);
-        }
-
         try {
-            $this->attendanceService->checkInMember($member, Auth::id());
+            $result = $this->attendanceService->checkInMembersBatch([(int) $member->id], Auth::id());
+
+            if (empty($result['checked_in'])) {
+                $reason = $result['skipped'][0]['reason'] ?? 'Member tidak dapat melakukan check-in.';
+
+                return redirect()
+                    ->route('attendance.check-in')
+                    ->with('error', $reason);
+            }
 
             return redirect()
                 ->route('attendance.check-in')
@@ -67,6 +70,19 @@ class AttendanceController extends Controller
                 ->route('attendance.check-in')
                 ->with('error', 'Terjadi kesalahan: '.$e->getMessage());
         }
+    }
+
+    public function batchCheckIn(BatchCheckInRequest $request): JsonResponse
+    {
+        $validated = $request->validated();
+
+        $result = $this->attendanceService->checkInMembersBatch(
+            $validated['member_ids'],
+            Auth::id(),
+            $validated['auto_checkout_hours'] ?? 3
+        );
+
+        return response()->json($result, $result['success'] ? 200 : 422);
     }
 
     public function checkOut(Request $request): RedirectResponse

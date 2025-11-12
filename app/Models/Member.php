@@ -33,6 +33,8 @@ class Member extends Model
             'status' => MemberStatus::class,
             'exp_date' => 'date',
             'last_check_in' => 'datetime',
+            'has_checked_in_today' => 'boolean',
+            'can_checkin' => 'boolean',
         ];
     }
 

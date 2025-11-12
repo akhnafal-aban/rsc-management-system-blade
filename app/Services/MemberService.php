@@ -4,18 +4,17 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Enums\MemberStatus;
 use App\Models\Member;
 use Carbon\Carbon;
 use Illuminate\Pagination\LengthAwarePaginator;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class MemberService
 {
     public function __construct(
         private PaymentService $paymentService,
-        private MembershipService $membershipService,
-        private DashboardService $dashboardService
+        private MembershipService $membershipService
     ) {}
 
     public function getAllMembers(array $filters = []): LengthAwarePaginator
@@ -85,12 +84,6 @@ class MemberService
             $this->createRegistrationPayment($member, $paymentMethod, $paymentNotes);
             $this->createMembershipPayment($member, $membershipDuration, $paymentMethod, $paymentNotes);
 
-            // Invalidate member caches
-            CacheService::invalidateMemberCaches();
-
-            // Invalidate dashboard cache
-            $this->dashboardService->invalidateDashboardCache();
-
             return $member->fresh(['membership', 'payments']);
         });
     }
@@ -108,12 +101,6 @@ class MemberService
             // Always check and update status based on exp_date after any update
             $this->autoUpdateMemberStatus($member);
 
-            // Invalidate member caches
-            CacheService::invalidateMemberCaches();
-
-            // Invalidate dashboard cache if status might have changed
-            $this->dashboardService->invalidateDashboardCache();
-
             return $member->fresh(['membership', 'payments']);
         });
     }
@@ -130,9 +117,6 @@ class MemberService
         $member = Member::findOrFail($id);
         $member->update(['status' => \App\Enums\MemberStatus::INACTIVE]);
 
-        // Invalidate member caches
-        CacheService::invalidateMemberCaches();
-
         return $member->fresh();
     }
 
@@ -140,9 +124,6 @@ class MemberService
     {
         $member = Member::findOrFail($id);
         $member->update(['status' => \App\Enums\MemberStatus::ACTIVE]);
-
-        // Invalidate member caches
-        CacheService::invalidateMemberCaches();
 
         return $member->fresh();
     }
@@ -172,51 +153,51 @@ class MemberService
             $amount = $this->membershipService->getMembershipPrice($duration);
             $this->paymentService->createPayment($member, $amount, $paymentMethod, $paymentNotes);
 
-            // Invalidate member caches
-            CacheService::invalidateMemberCaches();
-
-            // Invalidate dashboard cache
-            $this->dashboardService->invalidateDashboardCache();
-
             return $member->fresh(['membership', 'payments']);
         });
     }
 
     public function searchMembers(string $query): array
     {
-        // Reduce cache TTL for search results to avoid stale data
-        $cacheKey = CacheService::getMemberSearchKey($query, 20);
+        $today = Carbon::today()->format('Y-m-d');
 
-        return Cache::remember($cacheKey, CacheService::CACHE_TTL_SHORT, function () use ($query) {
-            $members = Member::select('id', 'member_code', 'name', 'exp_date', 'status')
-                ->where(function ($q) use ($query) {
-                    $q->where('member_code', 'like', "%{$query}%")
-                        ->orWhere('name', 'like', "%{$query}%");
-                })
-                ->orderByRaw("CASE WHEN member_code LIKE '%{$query}%' THEN 1 ELSE 2 END")
-                ->orderBy('member_code')
-                ->limit(20)
-                ->get()
-                ->toArray();
+        $sql = <<<'SQL'
+SELECT
+    m.id,
+    m.member_code,
+    m.name,
+    m.exp_date,
+    m.status,
+    EXISTS (
+        SELECT 1
+        FROM attendances a
+        WHERE a.member_id = m.id
+          AND DATE(a.check_in_time) = ?
+          AND a.check_out_time IS NULL
+    ) AS has_checked_in_today
+FROM members m
+WHERE m.member_code LIKE ?
+   OR m.name LIKE ?
+ORDER BY
+    CASE WHEN m.member_code LIKE ? THEN 0 ELSE 1 END,
+    m.member_code ASC
+LIMIT 20
+SQL;
 
-            // Add formatted exp_date to each member
-            return array_map(function ($member) {
-                $member['exp_date_formatted'] = \Carbon\Carbon::parse($member['exp_date'])->format('d M Y');
+        $likeQuery = '%'.$query.'%';
+        $rows = DB::select($sql, [$today, $likeQuery, $likeQuery, $likeQuery]);
 
-                return $member;
-            }, $members);
-        });
-    }
+        return array_map(
+            static function ($row) {
+                $data = (array) $row;
+                $data['exp_date_formatted'] = Carbon::parse($data['exp_date'])->format('d M Y');
+                $data['has_checked_in_today'] = (bool) $data['has_checked_in_today'];
+                $data['can_checkin'] = $data['status'] === MemberStatus::ACTIVE->value && ! $data['has_checked_in_today'];
 
-    public function clearSearchCache(?string $query = null): void
-    {
-        if ($query) {
-            $cacheKey = CacheService::getMemberSearchKey($query, 20);
-            Cache::forget($cacheKey);
-        } else {
-            // Clear all member search caches
-            Cache::flush(); // This is more aggressive, use with caution
-        }
+                return $data;
+            },
+            $rows
+        );
     }
 
     public function getMemberStats(Member $member): array
@@ -242,8 +223,8 @@ class MemberService
 
         // Determine what the status should be based on exp_date and activity
         $shouldBeActive = $expDate->isFuture() || $expDate->isToday();
-        $shouldBeExpired = !$shouldBeActive && $expDate->diffInMonths($today) < 3;
-        $shouldBeInactive = !$shouldBeActive && $expDate->diffInMonths($today) >= 3;
+        $shouldBeExpired = ! $shouldBeActive && $expDate->diffInMonths($today) < 3;
+        $shouldBeInactive = ! $shouldBeActive && $expDate->diffInMonths($today) >= 3;
 
         if ($shouldBeActive && $currentStatus !== \App\Enums\MemberStatus::ACTIVE) {
             // Member should be active - activate
@@ -293,7 +274,7 @@ class MemberService
             if ($currentStatus !== $newStatus) {
                 $member->update(['status' => $newStatus]);
                 $updatedCount++;
-                
+
                 $results[] = [
                     'member_id' => $member->id,
                     'member_name' => $member->name,
@@ -303,10 +284,6 @@ class MemberService
                 ];
             }
         }
-
-        // Invalidate caches
-        CacheService::invalidateMemberCaches();
-        $this->dashboardService->invalidateDashboardCache();
 
         return [
             'total_updated' => $updatedCount,
@@ -323,7 +300,7 @@ class MemberService
         } elseif ($newStatus === \App\Enums\MemberStatus::INACTIVE) {
             return 'Membership expired more than 3 months ago';
         }
-        
+
         return 'Status updated';
     }
 
