@@ -43,8 +43,6 @@ Route::middleware('auth')->group(function () {
     Route::post('/attendance/checkout', [AttendanceController::class, 'checkOut'])->name('attendance.checkout');
     Route::get('/attendance/export', [AttendanceController::class, 'exportTodayAttendances'])->name('attendance.export');
 
-    Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
-
     // Notifications
     Route::get('/notifications/scheduled-commands', [NotificationController::class, 'getScheduledCommandNotifications'])->name('notifications.scheduled-commands');
     Route::post('/notifications/mark-read', [NotificationController::class, 'markNotificationsAsRead'])->name('notifications.mark-read');
@@ -55,15 +53,14 @@ Route::middleware('auth')->group(function () {
     });
 });
 
-// Error testing routes (only for development)
-// if (app()->environment('local', 'testing')) {
-//     Route::get('/test-error/{code}', function ($code) {
-//         $validCodes = [400, 403, 404, 419, 429, 500, 503];
+if (app()->environment('local', 'testing')) {
+    Route::get('/test-error/{code}', function ($code) {
+        $validCodes = [400, 403, 404, 419, 429, 500, 503];
 
-//         if (! in_array($code, $validCodes)) {
-//             abort(404, 'Error code not found');
-//         }
+        if (! in_array($code, $validCodes)) {
+            abort(404, 'Error code not found');
+        }
 
-//         abort((int) $code, 'Test error page');
-//     })->name('test.error');
-// }
+        abort((int) $code, 'Test error page');
+    })->name('test.error');
+}

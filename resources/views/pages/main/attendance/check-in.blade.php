@@ -86,7 +86,7 @@
                     Belum ada member yang dipilih. Gunakan kolom pencarian lalu tekan tombol <span class="font-semibold">Tambah ke Batch</span> pada hasil yang tersedia.
                 </div>
 
-                <div id="selected_members_list" class="hidden grid gap-3"></div>
+                <div id="selected_members_list" class="grid gap-3"></div>
 
                 <div class="flex flex-col sm:flex-row gap-2 sm:justify-end sm:items-center">
                     <button type="button" id="selected_clear_all"
