@@ -27,8 +27,12 @@ class AttendanceService
         $page = Paginator::resolveCurrentPage();
         $offset = ($page - 1) * $perPage;
 
-        $bindings = [$date];
-        $conditions = ['DATE(attendances.check_in_time) = ?'];
+        $dateCarbon = Carbon::parse($date);
+        $startOfDay = $dateCarbon->startOfDay();
+        $endOfDay = $dateCarbon->endOfDay();
+
+        $bindings = [$startOfDay, $endOfDay];
+        $conditions = ['attendances.check_in_time BETWEEN ? AND ?'];
 
         if (! empty($search)) {
             $conditions[] = '(members.name LIKE ? OR members.member_code LIKE ?)';
@@ -98,7 +102,9 @@ SQL;
 
     public function searchMembers(string $query): Collection
     {
-        $today = Carbon::today()->format('Y-m-d');
+        $today = Carbon::today();
+        $startOfDay = $today->startOfDay();
+        $endOfDay = $today->endOfDay();
 
         $sql = <<<'SQL'
 SELECT
@@ -113,7 +119,7 @@ SELECT
         SELECT 1
         FROM attendances a
         WHERE a.member_id = m.id
-          AND DATE(a.check_in_time) = ?
+          AND a.check_in_time BETWEEN ? AND ?
           AND a.check_out_time IS NULL
     ) AS has_checked_in_today
 FROM members m
@@ -130,7 +136,8 @@ SQL;
         $likeQuery = '%'.$query.'%';
 
         $rows = DB::select($sql, [
-            $today,
+            $startOfDay,
+            $endOfDay,
             MemberStatus::ACTIVE->value,
             MemberStatus::EXPIRED->value,
             $likeQuery,
@@ -181,6 +188,8 @@ SQL;
     public function canCheckIn(Member $member): array
     {
         $today = Carbon::today();
+        $startOfDay = $today->startOfDay();
+        $endOfDay = $today->endOfDay();
 
         $sql = <<<'SQL'
 SELECT
@@ -194,12 +203,12 @@ SELECT
     updated_at
 FROM attendances
 WHERE member_id = ?
-  AND DATE(check_in_time) = ?
+  AND check_in_time BETWEEN ? AND ?
   AND check_out_time IS NULL
 LIMIT 1
 SQL;
 
-        $todayAttendance = DB::selectOne($sql, [$member->id, $today->format('Y-m-d')]);
+        $todayAttendance = DB::selectOne($sql, [$member->id, $startOfDay, $endOfDay]);
 
         if ($todayAttendance) {
             $attendance = Attendance::hydrate([(array) $todayAttendance])->first();
@@ -355,7 +364,9 @@ SQL;
             ];
         }
 
-        DB::transaction(function () use ($rows, $insertableIds, $now): void {
+        $attendanceIds = [];
+
+        DB::transaction(function () use ($rows, $insertableIds, $now, $userId, &$attendanceIds): void {
             DB::table('attendances')->insert($rows);
 
             DB::table('members')
@@ -365,18 +376,30 @@ SQL;
                     'total_visits' => DB::raw('total_visits + 1'),
                     'updated_at' => $now,
                 ]);
+
+            // Optimasi: gunakan whereBetween untuk timestamp daripada whereDate (lebih cepat dengan index)
+            $startOfDay = $now->copy()->startOfDay();
+            $endOfDay = $now->copy()->endOfDay();
+            $attendanceIds = DB::table('attendances')
+                ->whereIn('member_id', $insertableIds)
+                ->whereBetween('check_in_time', [$startOfDay, $endOfDay])
+                ->where('created_by', $userId)
+                ->whereNull('check_out_time')
+                ->pluck('id')
+                ->all();
         });
 
-        $createdAttendances = Attendance::query()
-            ->whereIn('member_id', $insertableIds)
-            ->whereDate('check_in_time', $today)
-            ->where('created_by', $userId)
-            ->whereNull('check_out_time')
-            ->get();
-
-        foreach ($createdAttendances as $attendance) {
-            $this->scheduleAutoCheckOut($attendance, $autoCheckoutHours);
+        // Batch dispatch jobs untuk mengurangi overhead
+        $delaySeconds = $autoCheckoutHours * 3600;
+        foreach ($attendanceIds as $attendanceId) {
+            AutoCheckOutJob::dispatch($attendanceId)
+                ->delay(now()->addSeconds($delaySeconds));
         }
+
+        // Ambil attendances hanya untuk response, tanpa eager loading yang tidak perlu
+        $createdAttendances = Attendance::query()
+            ->whereIn('id', $attendanceIds)
+            ->get();
 
         $checkedIn = $createdAttendances->map(function (Attendance $attendance) use ($members, $now): array {
             $member = $members->get($attendance->member_id);
@@ -470,6 +493,10 @@ SQL;
 
     public function exportAttendancesByDate(string $date): array
     {
+        $dateCarbon = Carbon::parse($date);
+        $startOfDay = $dateCarbon->startOfDay();
+        $endOfDay = $dateCarbon->endOfDay();
+
         $sql = <<<'SQL'
 SELECT
     attendances.check_in_time,
@@ -480,11 +507,11 @@ SELECT
 FROM attendances
 LEFT JOIN members ON attendances.member_id = members.id
 LEFT JOIN users AS creators ON attendances.created_by = creators.id
-WHERE DATE(attendances.check_in_time) = ?
+WHERE attendances.check_in_time BETWEEN ? AND ?
 ORDER BY attendances.check_in_time DESC
 SQL;
 
-        $attendances = DB::select($sql, [$date]);
+        $attendances = DB::select($sql, [$startOfDay, $endOfDay]);
 
         $data = [];
         $data[] = ['Member ID', 'Nama', 'Waktu Check-in', 'Waktu Check-out', 'Staff', 'Status'];

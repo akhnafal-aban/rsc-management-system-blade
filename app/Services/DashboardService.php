@@ -6,18 +6,25 @@ namespace App\Services;
 
 use App\Models\Attendance;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class DashboardService
 {
+    private const CACHE_TTL = 60; // 60 detik cache
+
     public function getDashboardData(): array
     {
-        return [
-            'stats' => $this->getStats(),
-            'activities' => $this->getRecentActivities(),
-            'charts' => $this->getChartData(),
-            'insights' => $this->getManagerInsights(),
-        ];
+        $cacheKey = 'dashboard_data_'.Carbon::today()->format('Y-m-d').'_'.Carbon::now()->format('H:i');
+
+        return Cache::remember($cacheKey, self::CACHE_TTL, function (): array {
+            return [
+                'stats' => $this->getStats(),
+                'activities' => $this->getRecentActivities(),
+                'charts' => $this->getChartData(),
+                'insights' => $this->getManagerInsights(),
+            ];
+        });
     }
 
     private function getStats(): array
@@ -27,54 +34,114 @@ class DashboardService
         $endOfMonth = $today->copy()->endOfMonth();
         $startOfWeek = Carbon::now()->startOfWeek();
         $endOfWeek = Carbon::now()->endOfWeek();
+        $yesterday = $today->copy()->subDay();
 
+        // Gabungkan semua query stats dalam satu query untuk mengurangi round-trip
         $sql = <<<'SQL'
 SELECT
-    COUNT(CASE WHEN status = ? THEN 1 END) AS active_members,
+    (SELECT COUNT(*) FROM members WHERE status = ?) AS active_members,
     (SELECT COUNT(*) FROM attendances WHERE DATE(check_in_time) = ?) AS today_checkins,
+    (SELECT COUNT(*) FROM attendances WHERE DATE(check_in_time) = ?) AS yesterday_checkins,
     (SELECT COUNT(*) FROM attendances WHERE check_in_time BETWEEN ? AND ?) AS weekly_attendance,
-    (SELECT COALESCE(SUM(amount), 0) FROM payments WHERE created_at BETWEEN ? AND ?) AS monthly_revenue
-FROM members
+    (SELECT COUNT(*) FROM attendances WHERE check_in_time BETWEEN ? AND ?) AS last_week_attendance,
+    (SELECT COALESCE(SUM(amount), 0) FROM payments WHERE created_at BETWEEN ? AND ?) AS monthly_revenue,
+    (SELECT COALESCE(SUM(amount), 0) FROM payments WHERE created_at BETWEEN ? AND ?) AS last_month_revenue,
+    (SELECT COUNT(*) FROM members WHERE status = ? AND created_at BETWEEN ? AND ?) AS current_month_members,
+    (SELECT COUNT(*) FROM members WHERE status = ? AND created_at BETWEEN ? AND ?) AS last_month_members
 SQL;
 
         $stats = DB::selectOne($sql, [
             \App\Enums\MemberStatus::ACTIVE->value,
             $today->format('Y-m-d'),
+            $yesterday->format('Y-m-d'),
             $startOfWeek,
             $endOfWeek,
+            Carbon::now()->subWeek()->startOfWeek(),
+            Carbon::now()->subWeek()->endOfWeek(),
             $startOfMonth,
             $endOfMonth,
+            $startOfMonth->copy()->subMonth(),
+            $endOfMonth->copy()->subMonth(),
+            \App\Enums\MemberStatus::ACTIVE->value,
+            $startOfMonth,
+            $endOfMonth,
+            \App\Enums\MemberStatus::ACTIVE->value,
+            $startOfMonth->copy()->subMonth(),
+            $endOfMonth->copy()->subMonth(),
         ]);
 
         $weeklyAttendance = (int) ($stats->weekly_attendance ?? 0);
         $weeklyAverage = $weeklyAttendance > 0 ? (int) round($weeklyAttendance / 7) : 0;
         $monthlyRevenue = (float) ($stats->monthly_revenue ?? 0);
 
+        // Hitung perubahan langsung dari hasil query
+        $todayCheckins = (int) ($stats->today_checkins ?? 0);
+        $yesterdayCheckins = (int) ($stats->yesterday_checkins ?? 0);
+        $todayChange = $this->calculateChange($todayCheckins, $yesterdayCheckins);
+
+        $lastWeekAttendance = (int) ($stats->last_week_attendance ?? 0);
+        $weeklyTrend = $this->calculateChange($weeklyAttendance, $lastWeekAttendance);
+
+        $currentMonthMembers = (int) ($stats->current_month_members ?? 0);
+        $lastMonthMembers = (int) ($stats->last_month_members ?? 0);
+        $memberGrowth = $this->calculateChange($currentMonthMembers, $lastMonthMembers);
+
+        $lastMonthRevenue = (float) ($stats->last_month_revenue ?? 0);
+        $revenueGrowth = $this->calculateChange($monthlyRevenue, $lastMonthRevenue);
+
         return [
             [
                 'title' => 'Member Aktif',
                 'value' => (int) ($stats->active_members ?? 0),
-                'change' => $this->getMemberGrowthPercentage(),
+                'change' => $memberGrowth,
                 'icon' => 'users',
             ],
             [
                 'title' => 'Check-in Hari Ini',
-                'value' => (int) ($stats->today_checkins ?? 0),
-                'change' => $this->getTodayAttendanceChange(),
+                'value' => $todayCheckins,
+                'change' => $todayChange,
                 'icon' => 'user-check',
             ],
             [
                 'title' => 'Rata-rata Mingguan',
                 'value' => $weeklyAverage,
-                'change' => $this->getWeeklyTrend(),
+                'change' => $weeklyTrend,
                 'icon' => 'trending-up',
             ],
             [
                 'title' => 'Pendapatan Bulanan',
                 'value' => 'Rp '.number_format($monthlyRevenue, 0, ',', '.'),
-                'change' => $this->getRevenueGrowthPercentage($startOfMonth, $endOfMonth),
+                'change' => $revenueGrowth,
                 'icon' => 'dollar-sign',
             ],
+        ];
+    }
+
+    private function calculateChange(float|int $current, float|int $previous): ?array
+    {
+        if ($previous == 0) {
+            if ($current > 0) {
+                return [
+                    'type' => 'increase',
+                    'value' => '100%',
+                ];
+            }
+
+            return ['type' => 'neutral'];
+        }
+
+        $change = (($current - $previous) / $previous) * 100;
+
+        if (! is_finite($change) || abs($change) < 0.0001) {
+            return [
+                'type' => 'stable',
+                'value' => '0%',
+            ];
+        }
+
+        return [
+            'type' => $change > 0 ? 'increase' : 'decrease',
+            'value' => number_format(abs($change), 1).'%',
         ];
     }
 
@@ -178,6 +245,7 @@ SQL;
 
     private function getDailyActivityData(): array
     {
+        // Data ini sudah diambil di getStats, gunakan cache atau ambil dari stats
         $today = Carbon::today();
         $target = 100; // Target harian
         $sql = 'SELECT COUNT(*) AS total FROM attendances WHERE DATE(check_in_time) = ?';
@@ -221,102 +289,6 @@ SQL;
         ];
     }
 
-    private function getMemberGrowthPercentage(): ?array
-    {
-        $currentMonthStart = Carbon::now()->startOfMonth();
-        $currentMonthEnd = Carbon::now()->endOfMonth();
-        $startOfLastMonth = Carbon::now()->subMonth()->startOfMonth();
-        $endOfLastMonth = Carbon::now()->subMonth()->endOfMonth();
-
-        $currentCountSql = <<<'SQL'
-SELECT COUNT(*) AS total
-FROM members
-WHERE status = ?
-  AND created_at BETWEEN ? AND ?
-SQL;
-
-        $currentCountResult = DB::selectOne($currentCountSql, [
-            \App\Enums\MemberStatus::ACTIVE->value,
-            $currentMonthStart,
-            $currentMonthEnd,
-        ]);
-
-        $lastMonthCountSql = <<<'SQL'
-SELECT COUNT(*) AS total
-FROM members
-WHERE status = ?
-  AND created_at BETWEEN ? AND ?
-SQL;
-
-        $lastMonthCountResult = DB::selectOne($lastMonthCountSql, [
-            \App\Enums\MemberStatus::ACTIVE->value,
-            $startOfLastMonth,
-            $endOfLastMonth,
-        ]);
-
-        $currentCount = (int) ($currentCountResult->total ?? 0);
-        $lastMonthCount = (int) ($lastMonthCountResult->total ?? 0);
-
-        if ($lastMonthCount === 0) {
-            if ($currentCount > 0) {
-                return [
-                    'type' => 'increase',
-                    'value' => '100%',
-                ];
-            }
-
-            return [
-                'type' => 'neutral',
-            ];
-        }
-
-        $growth = (($currentCount - $lastMonthCount) / $lastMonthCount) * 100;
-
-        if (! is_finite($growth) || $growth == 0) {
-            return [
-                'type' => 'stable',
-                'value' => '0%',
-            ];
-        }
-
-        return [
-            'type' => $growth > 0 ? 'increase' : 'decrease',
-            'value' => number_format(abs($growth), 1).'%',
-        ];
-    }
-
-    private function getTodayAttendanceChange(): ?array
-    {
-        $today = Carbon::today();
-        $yesterday = Carbon::yesterday();
-
-        $todaySql = 'SELECT COUNT(*) AS total FROM attendances WHERE DATE(check_in_time) = ?';
-        $yesterdaySql = 'SELECT COUNT(*) AS total FROM attendances WHERE DATE(check_in_time) = ?';
-
-        $todayCount = (int) (DB::selectOne($todaySql, [$today->format('Y-m-d')])->total ?? 0);
-        $yesterdayCount = (int) (DB::selectOne($yesterdaySql, [$yesterday->format('Y-m-d')])->total ?? 0);
-
-        // Tidak ada data pembanding
-        if ($yesterdayCount === 0) {
-            return ['type' => 'neutral'];
-        }
-
-        $change = (($todayCount - $yesterdayCount) / $yesterdayCount) * 100;
-
-        // Jika ada data tapi tidak ada perubahan
-        if ($change == 0) {
-            return [
-                'type' => 'stable',
-                'value' => '0%',
-            ];
-        }
-
-        return [
-            'type' => $change > 0 ? 'increase' : 'decrease',
-            'value' => number_format(abs($change), 1).'%',
-        ];
-    }
-
     private function getWeeklyAverage(): int
     {
         $startOfWeek = Carbon::now()->startOfWeek();
@@ -325,75 +297,11 @@ SQL;
         return (int) round(Attendance::whereBetween('check_in_time', [$startOfWeek, $endOfWeek])->count() / 7);
     }
 
-    private function getWeeklyTrend(): ?array
-    {
-        $thisWeekSql = 'SELECT COUNT(*) AS total FROM attendances WHERE check_in_time BETWEEN ? AND ?';
-        $lastWeekSql = 'SELECT COUNT(*) AS total FROM attendances WHERE check_in_time BETWEEN ? AND ?';
-
-        $thisWeekRange = [Carbon::now()->startOfWeek(), Carbon::now()->endOfWeek()];
-        $lastWeekRange = [Carbon::now()->subWeek()->startOfWeek(), Carbon::now()->subWeek()->endOfWeek()];
-
-        $thisWeek = (int) (DB::selectOne($thisWeekSql, $thisWeekRange)->total ?? 0);
-        $lastWeek = (int) (DB::selectOne($lastWeekSql, $lastWeekRange)->total ?? 0);
-
-        if ($lastWeek === 0) {
-            return null;
-        }
-
-        $trend = (($thisWeek - $lastWeek) / $lastWeek) * 100;
-
-        return [
-            'type' => $trend >= 0 ? 'increase' : 'decrease',
-            'value' => number_format(abs($trend), 1).'%',
-        ];
-    }
-
     private function getMonthlyRevenue(Carbon $startOfMonth, Carbon $endOfMonth): float
     {
         $sql = 'SELECT COALESCE(SUM(amount), 0) AS total FROM payments WHERE created_at BETWEEN ? AND ?';
 
         return (float) (DB::selectOne($sql, [$startOfMonth, $endOfMonth])->total ?? 0.0);
-    }
-
-    private function getRevenueGrowthPercentage(Carbon $startOfMonth, Carbon $endOfMonth): ?array
-    {
-        $lastMonth = $startOfMonth->copy()->subMonth();
-        $lastMonthEnd = $endOfMonth->copy()->subMonth();
-
-        $currentRevenue = (float) $this->getMonthlyRevenue($startOfMonth, $endOfMonth);
-        $lastMonthRevenue = (float) $this->getMonthlyRevenue($lastMonth, $lastMonthEnd);
-
-        // Gunakan <= 0 untuk menghindari pembagian nol atau negatif kecil akibat floating point
-        if ($lastMonthRevenue <= 0) {
-            if ($currentRevenue > 0) {
-                return [
-                    'type' => 'increase',
-                    'value' => '100%',
-                ];
-            }
-
-            return [
-                'type' => 'neutral',
-            ];
-        }
-
-        // Pastikan tidak mungkin membagi nol
-        $growth = 0;
-        if ($lastMonthRevenue > 0) {
-            $growth = (($currentRevenue - $lastMonthRevenue) / $lastMonthRevenue) * 100;
-        }
-
-        if (! is_finite($growth) || abs($growth) < 0.0001) {
-            return [
-                'type' => 'stable',
-                'value' => '0%',
-            ];
-        }
-
-        return [
-            'type' => $growth > 0 ? 'increase' : 'decrease',
-            'value' => number_format(abs($growth), 1).'%',
-        ];
     }
 
     private function getTopActiveMember(): string

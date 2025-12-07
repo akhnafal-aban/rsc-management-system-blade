@@ -6,39 +6,49 @@ namespace App\Http\Controllers;
 
 use App\Models\CommandNotification;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Cache;
 
 class NotificationController extends Controller
 {
+    private const CACHE_TTL = 30; // 30 detik cache untuk notifikasi
+
     public function getScheduledCommandNotifications(): JsonResponse
     {
-        $notifications = CommandNotification::query()
-            ->orderByDesc('created_at')
-            ->limit(10)
-            ->get()
-            ->map(function (CommandNotification $notification) {
-                $createdAt = $notification->created_at ?? now();
-                $checkoutAt = $notification->checkout_at;
+        // Cache key berdasarkan menit untuk efisiensi cache
+        $cacheKey = 'command_notifications_'.now()->format('Y-m-d-H-i');
 
-                return [
-                    'id' => $notification->id,
-                    'command' => $notification->command,
-                    'status' => $notification->status,
-                    'message' => $notification->message,
-                    'member_name' => $notification->member_name,
-                    'checkout_time' => $checkoutAt?->format('H:i'),
-                    'timestamp' => $createdAt->timestamp,
-                    'time' => $createdAt->format('H:i:s'),
-                    'date' => $createdAt->format('d M Y'),
-                    'read' => $notification->is_read,
-                ];
-            })
-            ->all();
+        $result = Cache::remember($cacheKey, self::CACHE_TTL, function (): array {
+            $notifications = CommandNotification::query()
+                ->orderByDesc('created_at')
+                ->limit(10)
+                ->get()
+                ->map(function (CommandNotification $notification) {
+                    $createdAt = $notification->created_at ?? now();
+                    $checkoutAt = $notification->checkout_at;
 
-        return response()->json([
-            'notifications' => $notifications,
-            'total' => count($notifications),
-            'has_new' => $this->hasRecentNotifications($notifications),
-        ]);
+                    return [
+                        'id' => $notification->id,
+                        'command' => $notification->command,
+                        'status' => $notification->status,
+                        'message' => $notification->message,
+                        'member_name' => $notification->member_name,
+                        'checkout_time' => $checkoutAt?->format('H:i'),
+                        'timestamp' => $createdAt->timestamp,
+                        'time' => $createdAt->format('H:i:s'),
+                        'date' => $createdAt->format('d M Y'),
+                        'read' => $notification->is_read,
+                    ];
+                })
+                ->all();
+
+            return [
+                'notifications' => $notifications,
+                'total' => count($notifications),
+                'has_new' => $this->hasRecentNotifications($notifications),
+            ];
+        });
+
+        return response()->json($result);
     }
 
     public function markNotificationsAsRead(): JsonResponse

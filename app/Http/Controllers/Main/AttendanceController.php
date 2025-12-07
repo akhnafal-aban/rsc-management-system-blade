@@ -7,7 +7,6 @@ namespace App\Http\Controllers\Main;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\BatchCheckInRequest;
 use App\Services\AttendanceService;
-use App\Services\MemberService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -19,7 +18,6 @@ class AttendanceController extends Controller
 {
     public function __construct(
         private readonly AttendanceService $attendanceService,
-        private readonly MemberService $memberService
     ) {}
 
     public function index(Request $request): View
