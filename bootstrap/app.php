@@ -19,8 +19,13 @@ return Application::configure(basePath: dirname(__DIR__))
         // $middleware->append(RoleMiddleware::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        // Custom error page rendering
+        // Custom error page rendering (hanya untuk production)
         $exceptions->render(function (Throwable $e, Request $request) {
+            // Jika APP_DEBUG=true, gunakan default Laravel error handler
+            if (config('app.debug')) {
+                return null; // Let Laravel handle the error with default exception page
+            }
+
             if ($request->is('api/*')) {
                 return null; // Let API errors be handled by default
             }
