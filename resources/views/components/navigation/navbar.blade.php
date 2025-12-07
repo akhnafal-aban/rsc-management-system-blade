@@ -99,7 +99,6 @@
 
         const NOTIF_ROUTE = '{{ route('notifications.scheduled-commands') }}';
         const MARK_READ_ROUTE = '{{ route('notifications.mark-read') }}';
-        let notificationInterval = null;
 
         function fetchNotifications() {
             return fetch(NOTIF_ROUTE, { credentials: 'same-origin' })
@@ -274,20 +273,6 @@
             }
         }
 
-        function startNotificationPolling() {
-            // initial load
-            fetchNotifications().then(populateNotifications).catch(err => console.error('Initial notif load failed', err));
-
-            // polling every 2 minutes
-            notificationInterval = setInterval(() => {
-                fetchNotifications().then(data => {
-                    // only update icons to reduce DOM churn
-                    updateDesktopBellIcon(data.has_new);
-                    updateMobileBellIcon(data.has_new);
-                }).catch(err => console.error('Error polling notifications:', err));
-            }, 120000);
-        }
-
         // Expose necessary functions to global scope so mobile partial can call them
         window.toggleNotificationPopup = toggleNotificationPopup;
         window.toggleMobileNotificationPopup = toggleMobileNotificationPopup;
@@ -307,18 +292,6 @@
 
             if (popupMobile && !popupMobile.classList.contains('hidden') && !popupMobile.contains(event.target) && buttonMobile && !buttonMobile.contains(event.target)) {
                 popupMobile.classList.add('hidden');
-            }
-        });
-
-        // Start polling once DOM loaded
-        document.addEventListener('DOMContentLoaded', function() {
-            startNotificationPolling();
-        });
-
-        // Ensure interval cleared on unload
-        window.addEventListener('beforeunload', function() {
-            if (notificationInterval) {
-                clearInterval(notificationInterval);
             }
         });
     } // end guard

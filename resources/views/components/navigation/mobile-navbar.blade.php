@@ -134,8 +134,6 @@
                 mobileNotificationPopup.classList.add('hidden');
             }
         });
-
-        // Note: mobile does not perform its own fetch or setInterval anymore.
     });
 
     function handleLogout() {

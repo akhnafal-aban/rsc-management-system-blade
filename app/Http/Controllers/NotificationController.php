@@ -10,14 +10,14 @@ use Illuminate\Support\Facades\Cache;
 
 class NotificationController extends Controller
 {
-    private const CACHE_TTL = 30; // 30 detik cache untuk notifikasi
+    private const CACHE_TTL = 300; // 5 menit cache untuk notifikasi
+
+    private const CACHE_KEY = 'command_notifications_list';
 
     public function getScheduledCommandNotifications(): JsonResponse
     {
-        // Cache key berdasarkan menit untuk efisiensi cache
-        $cacheKey = 'command_notifications_'.now()->format('Y-m-d-H-i');
-
-        $result = Cache::remember($cacheKey, self::CACHE_TTL, function (): array {
+        // Cache key yang stabil - akan di-invalidate saat ada notifikasi baru
+        $result = Cache::remember(self::CACHE_KEY, self::CACHE_TTL, function (): array {
             $notifications = CommandNotification::query()
                 ->orderByDesc('created_at')
                 ->limit(10)
@@ -57,6 +57,9 @@ class NotificationController extends Controller
             ->where('is_read', false)
             ->update(['is_read' => true]);
 
+        // Invalidate cache saat notifikasi di-mark as read
+        Cache::forget(self::CACHE_KEY);
+
         return response()->json(['success' => true]);
     }
 
@@ -84,5 +87,8 @@ class NotificationController extends Controller
             'checkout_at' => $checkoutTime ? now()->setTimeFromTimeString($checkoutTime) : null,
             'is_read' => false,
         ]);
+
+        // Invalidate cache saat ada notifikasi baru
+        Cache::forget(self::CACHE_KEY);
     }
 }

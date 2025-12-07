@@ -11,11 +11,14 @@ use Illuminate\Support\Facades\DB;
 
 class DashboardService
 {
-    private const CACHE_TTL = 60; // 60 detik cache
+    private const CACHE_TTL = 300; // 5 menit cache
+
+    private const CACHE_KEY_PREFIX = 'dashboard_data_';
 
     public function getDashboardData(): array
     {
-        $cacheKey = 'dashboard_data_'.Carbon::today()->format('Y-m-d').'_'.Carbon::now()->format('H:i');
+        // Cache key berdasarkan hari - lebih stabil dan tidak menumpuk
+        $cacheKey = self::CACHE_KEY_PREFIX.Carbon::today()->format('Y-m-d');
 
         return Cache::remember($cacheKey, self::CACHE_TTL, function (): array {
             return [
@@ -25,6 +28,18 @@ class DashboardService
                 'insights' => $this->getManagerInsights(),
             ];
         });
+    }
+
+    /**
+     * Invalidate dashboard cache
+     * Panggil method ini saat ada perubahan data yang mempengaruhi dashboard
+     */
+    public static function invalidateCache(): void
+    {
+        // Invalidate cache hari ini
+        Cache::forget(self::CACHE_KEY_PREFIX.Carbon::today()->format('Y-m-d'));
+        // Invalidate cache kemarin (jika masih ada)
+        Cache::forget(self::CACHE_KEY_PREFIX.Carbon::yesterday()->format('Y-m-d'));
     }
 
     private function getStats(): array

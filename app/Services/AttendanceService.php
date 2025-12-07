@@ -28,30 +28,30 @@ class AttendanceService
         ?string $search = null,
         ?string $statusFilter = null
     ): LengthAwarePaginator {
-    
+
         $dateCarbon = Carbon::parse($date);
         $start = $dateCarbon->startOfDay()->toDateTimeString();
         $end = $dateCarbon->endOfDay()->toDateTimeString();
-    
+
         // Named bindings
         $params = [
             'start' => $start,
             'end' => $end,
         ];
-    
-        $conditions = "attendances.check_in_time BETWEEN :start AND :end";
-    
-        if (!empty($search)) {
-            $conditions .= " AND (members.name LIKE :search OR members.member_code LIKE :search)";
+
+        $conditions = 'attendances.check_in_time BETWEEN :start AND :end';
+
+        if (! empty($search)) {
+            $conditions .= ' AND (members.name LIKE :search OR members.member_code LIKE :search)';
             $params['search'] = "%{$search}%";
         }
-    
+
         if ($statusFilter === 'checkin') {
-            $conditions .= " AND attendances.check_out_time IS NULL";
+            $conditions .= ' AND attendances.check_out_time IS NULL';
         } elseif ($statusFilter === 'checkout') {
-            $conditions .= " AND attendances.check_out_time IS NOT NULL";
+            $conditions .= ' AND attendances.check_out_time IS NOT NULL';
         }
-    
+
         // COUNT query optimized
         $countSql = "
             SELECT COUNT(*) AS total
@@ -59,13 +59,13 @@ class AttendanceService
             LEFT JOIN members ON attendances.member_id = members.id
             WHERE $conditions
         ";
-    
+
         $total = DB::selectOne($countSql, $params)->total;
-    
+
         // Add pagination parameters
         $params['limit'] = $perPage;
         $params['offset'] = (Paginator::resolveCurrentPage() - 1) * $perPage;
-    
+
         // DATA query
         $dataSql = "
             SELECT
@@ -87,9 +87,9 @@ class AttendanceService
             ORDER BY attendances.check_in_time DESC
             LIMIT :limit OFFSET :offset
         ";
-    
+
         $items = collect(DB::select($dataSql, $params));
-    
+
         return new LengthAwarePaginator(
             $items,
             $total,
@@ -101,10 +101,10 @@ class AttendanceService
                     'search' => $search,
                     'status' => $statusFilter,
                     'date' => $date,
-                ]
+                ],
             ]
         );
-    }    
+    }
 
     public function searchMembers(string $query): Collection
     {
@@ -263,6 +263,9 @@ SQL;
         // Dispatch delayed auto-checkout job
         $this->scheduleAutoCheckOut($attendance, $autoCheckoutHours);
 
+        // Invalidate dashboard cache saat ada check-in baru
+        \App\Services\DashboardService::invalidateCache();
+
         return $attendance->load(['member', 'creator']);
     }
 
@@ -418,6 +421,11 @@ SQL;
             ];
         })->toArray();
 
+        // Invalidate dashboard cache saat ada batch check-in
+        if (! empty($checkedIn)) {
+            \App\Services\DashboardService::invalidateCache();
+        }
+
         return [
             'success' => ! empty($checkedIn),
             'checked_in' => $checkedIn,
@@ -433,6 +441,9 @@ SQL;
         ]);
 
         $this->cancelAutoCheckOutJob($attendance);
+
+        // Invalidate dashboard cache saat ada check-out
+        \App\Services\DashboardService::invalidateCache();
 
         return $attendance->fresh(['member', 'creator']);
     }
