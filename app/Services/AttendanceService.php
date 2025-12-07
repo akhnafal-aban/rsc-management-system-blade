@@ -22,83 +22,89 @@ class AttendanceService
         return $this->getAttendancesByDate(Carbon::today()->format('Y-m-d'), $perPage, $search, $statusFilter);
     }
 
-    public function getAttendancesByDate(string $date, int $perPage = 10, ?string $search = null, ?string $statusFilter = null): LengthAwarePaginator
-    {
-        $page = Paginator::resolveCurrentPage();
-        $offset = ($page - 1) * $perPage;
-
+    public function getAttendancesByDate(
+        string $date,
+        int $perPage = 10,
+        ?string $search = null,
+        ?string $statusFilter = null
+    ): LengthAwarePaginator {
+    
         $dateCarbon = Carbon::parse($date);
-        $startOfDay = $dateCarbon->startOfDay();
-        $endOfDay = $dateCarbon->endOfDay();
-
-        $bindings = [$startOfDay, $endOfDay];
-        $conditions = ['attendances.check_in_time BETWEEN ? AND ?'];
-
-        if (! empty($search)) {
-            $conditions[] = '(members.name LIKE ? OR members.member_code LIKE ?)';
-            $bindings[] = '%'.$search.'%';
-            $bindings[] = '%'.$search.'%';
+        $start = $dateCarbon->startOfDay()->toDateTimeString();
+        $end = $dateCarbon->endOfDay()->toDateTimeString();
+    
+        // Named bindings
+        $params = [
+            'start' => $start,
+            'end' => $end,
+        ];
+    
+        $conditions = "attendances.check_in_time BETWEEN :start AND :end";
+    
+        if (!empty($search)) {
+            $conditions .= " AND (members.name LIKE :search OR members.member_code LIKE :search)";
+            $params['search'] = "%{$search}%";
         }
-
+    
         if ($statusFilter === 'checkin') {
-            $conditions[] = 'attendances.check_out_time IS NULL';
+            $conditions .= " AND attendances.check_out_time IS NULL";
         } elseif ($statusFilter === 'checkout') {
-            $conditions[] = 'attendances.check_out_time IS NOT NULL';
+            $conditions .= " AND attendances.check_out_time IS NOT NULL";
         }
-
-        $whereClause = 'WHERE '.implode(' AND ', $conditions);
-
-        $countSql = <<<SQL
-SELECT COUNT(*) AS total
-FROM attendances
-LEFT JOIN members ON attendances.member_id = members.id
-$whereClause
-SQL;
-
-        $totalResult = DB::selectOne($countSql, $bindings);
-        $total = (int) ($totalResult->total ?? 0);
-
-        $dataSql = <<<SQL
-SELECT
-    attendances.id,
-    attendances.member_id,
-    attendances.check_in_time,
-    attendances.check_out_time,
-    attendances.created_by,
-    attendances.updated_by,
-    attendances.created_at,
-    attendances.updated_at,
-    members.member_code,
-    members.name AS member_name,
-    creators.name AS creator_name
-FROM attendances
-LEFT JOIN members ON attendances.member_id = members.id
-LEFT JOIN users AS creators ON attendances.created_by = creators.id
-$whereClause
-ORDER BY attendances.check_in_time DESC
-LIMIT ? OFFSET ?
-SQL;
-        $dataBindings = array_merge($bindings, [$perPage, $offset]);
-        $rows = DB::select($dataSql, $dataBindings);
-        $items = collect($rows);
-
-        $queryParameters = array_filter([
-            'search' => $search,
-            'status' => $statusFilter,
-            'date' => $date,
-        ], static fn ($value) => $value !== null && $value !== '');
-
+    
+        // COUNT query optimized
+        $countSql = "
+            SELECT COUNT(*) AS total
+            FROM attendances
+            LEFT JOIN members ON attendances.member_id = members.id
+            WHERE $conditions
+        ";
+    
+        $total = DB::selectOne($countSql, $params)->total;
+    
+        // Add pagination parameters
+        $params['limit'] = $perPage;
+        $params['offset'] = (Paginator::resolveCurrentPage() - 1) * $perPage;
+    
+        // DATA query
+        $dataSql = "
+            SELECT
+                attendances.id,
+                attendances.member_id,
+                attendances.check_in_time,
+                attendances.check_out_time,
+                attendances.created_by,
+                attendances.updated_by,
+                attendances.created_at,
+                attendances.updated_at,
+                members.member_code,
+                members.name AS member_name,
+                users.name AS creator_name
+            FROM attendances
+            LEFT JOIN members ON attendances.member_id = members.id
+            LEFT JOIN users ON attendances.created_by = users.id
+            WHERE $conditions
+            ORDER BY attendances.check_in_time DESC
+            LIMIT :limit OFFSET :offset
+        ";
+    
+        $items = collect(DB::select($dataSql, $params));
+    
         return new LengthAwarePaginator(
             $items,
             $total,
             $perPage,
-            $page,
+            Paginator::resolveCurrentPage(),
             [
                 'path' => LengthAwarePaginator::resolveCurrentPath(),
-                'query' => $queryParameters,
+                'query' => [
+                    'search' => $search,
+                    'status' => $statusFilter,
+                    'date' => $date,
+                ]
             ]
         );
-    }
+    }    
 
     public function searchMembers(string $query): Collection
     {
