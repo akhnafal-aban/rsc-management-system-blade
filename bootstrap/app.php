@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\RequireShiftConfirmation;
 use App\Http\Middleware\RoleMiddleware;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -16,7 +17,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        // $middleware->append(RoleMiddleware::class);
+        $middleware->alias([
+            'shift.confirm' => RequireShiftConfirmation::class,
+            'role' => RoleMiddleware::class, // Tambahkan ini
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // Custom error page rendering (hanya untuk production)

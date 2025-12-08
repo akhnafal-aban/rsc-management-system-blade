@@ -46,8 +46,57 @@
     </div>
 </nav>
 
-<!-- Mobile Menu overlay/panel ... (keperluan navigasi tetap sama) -->
-<!-- ... markup unchanged ... -->
+<!-- Mobile Menu overlay/panel -->
+<div id="mobile-menu-overlay" class="fixed inset-0 bg-black/40 z-[999] hidden"></div>
+<div id="mobile-menu-panel"
+    class="fixed inset-y-0 left-0 w-72 max-w-[80%] bg-card border-r border-border z-[1000] transform -translate-x-full transition-transform duration-300 ease-in-out overflow-y-auto">
+    <div class="flex items-center justify-between px-4 py-3 border-b border-border">
+        <div class="flex items-center space-x-2">
+            <div class="w-8 h-8 rounded-lg overflow-hidden">
+                <img src="{{ Vite::asset('resources/images/rsc_logo.png') }}" alt="logo" class="w-full h-full object-cover">
+            </div>
+            <div>
+                <p class="text-sm font-semibold text-card-foreground">Really Sports Center</p>
+                <p class="text-xs text-muted-foreground">Menu</p>
+            </div>
+        </div>
+        <button id="mobile-menu-close" class="p-2 rounded-lg text-muted-foreground hover:bg-muted/50">
+            <x-ui.icon name="x" class="w-4 h-4" />
+        </button>
+    </div>
+
+    @php
+        $mobileUser = auth()->user();
+        $mobileIsAdmin = $mobileUser && $mobileUser->role && $mobileUser->role->isAdmin();
+        $mobileIsStaff = $mobileUser && $mobileUser->role && $mobileUser->role->isStaff();
+        $mobileMenuItems = [
+            ['label' => 'Dashboard', 'icon' => 'home', 'route' => 'dashboard'],
+            ['label' => 'Absensi', 'icon' => 'user-check', 'route' => 'attendance.index'],
+            ['label' => 'Members', 'icon' => 'users', 'route' => 'member.index'],
+            ['label' => 'Non-Member', 'icon' => 'user-plus', 'route' => 'non-member-visit.index'],
+        ];
+        if ($mobileIsAdmin) {
+            $mobileMenuItems = array_merge($mobileMenuItems, [
+                ['label' => 'Pembayaran', 'icon' => 'credit-card', 'route' => 'admin.payment.index'],
+                ['label' => 'Jadwal Staf', 'icon' => 'calendar', 'route' => 'admin.staff-schedule.index'],
+                ['label' => 'Laporan', 'icon' => 'bar-chart-3', 'route' => 'admin.business-report.index'],
+            ]);
+        }
+        if ($mobileIsStaff) {
+            $mobileMenuItems[] = ['label' => 'Jadwal Saya', 'icon' => 'calendar-clock', 'route' => 'staff.shift.schedule'];
+        }
+    @endphp
+
+    <div class="p-4 space-y-2">
+        @foreach ($mobileMenuItems as $item)
+            <a href="{{ route($item['route']) }}"
+                class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-muted/50 text-card-foreground transition-colors">
+                <x-ui.icon name="{{ $item['icon'] }}" class="w-4 h-4" />
+                <span class="text-sm font-medium">{{ $item['label'] }}</span>
+            </a>
+        @endforeach
+    </div>
+</div>
 
 <script>
     // Mobile menu functionality unchanged

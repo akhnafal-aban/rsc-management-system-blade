@@ -96,10 +96,30 @@
 
     <!-- Navigation List -->
     <ul class="h-[calc(100%-190px)] overflow-y-auto overflow-x-hidden nav-list pb-[60px]">
-        @php($menuItems = [['id' => 'dashboard', 'label' => 'Dashboard', 'icon' => 'home', 'route' => 'dashboard'], ['id' => 'attendance', 'label' => 'Absensi', 'icon' => 'user-check', 'route' => 'attendance.index'], ['id' => 'members', 'label' => 'Members', 'icon' => 'users', 'route' => 'member.index']])
+        @php
+            $authUser = auth()->user();
+            $isAdmin = $authUser && $authUser->role && $authUser->role->isAdmin();
+            $isStaff = $authUser && $authUser->role && $authUser->role->isStaff();
+            $menuItems = [
+                ['id' => 'dashboard', 'label' => 'Dashboard', 'icon' => 'home', 'route' => 'dashboard'],
+                ['id' => 'attendance', 'label' => 'Absensi', 'icon' => 'user-check', 'route' => 'attendance.index'],
+                ['id' => 'members', 'label' => 'Members', 'icon' => 'users', 'route' => 'member.index'],
+                ['id' => 'nonmember', 'label' => 'Non-Member', 'icon' => 'user-plus', 'route' => 'non-member-visit.index'],
+            ];
+            if ($isAdmin) {
+                $menuItems = array_merge($menuItems, [
+                    ['id' => 'payment', 'label' => 'Pembayaran', 'icon' => 'credit-card', 'route' => 'admin.payment.index'],
+                    ['id' => 'staff-schedule', 'label' => 'Jadwal Staf', 'icon' => 'calendar', 'route' => 'admin.staff-schedule.index'],
+                    ['id' => 'business-report', 'label' => 'Laporan', 'icon' => 'bar-chart-3', 'route' => 'admin.business-report.index'],
+                ]);
+            }
+            if ($isStaff) {
+                $menuItems[] = ['id' => 'my-schedule', 'label' => 'Jadwal Saya', 'icon' => 'calendar-clock', 'route' => 'staff.shift.schedule'];
+            }
+        @endphp
 
         @foreach ($menuItems as $item)
-            @php($isActive = request()->routeIs($item['route']) || (request()->routeIs('dashboard') && $item['id'] === 'dashboard'))
+            @php($isActive = request()->routeIs($item['route']))
             <li class="relative my-2 list-none">
                 <a href="{{ $item['route'] === '#' ? '#' : route($item['route']) }}"
                     class="flex h-[50px] w-full rounded-xl items-center no-underline transition-all duration-[400ms] ease-in-out bg-transparent text-foreground px-3 hover:bg-destructive hover:text-destructive-foreground {{ $isActive ? 'bg-destructive text-destructive-foreground' : '' }}">
@@ -118,7 +138,7 @@
     @if (isset($user))
         <div class="absolute bottom-4 left-0 w-full px-[14px]">
             <!-- Profile Button -->
-            <div class="bg-card/50 rounded-xl flex h-[50px] w-full rounded-xl items-center no-underline transition-all duration-[400ms] ease-in-out bg-transparent text-foreground px-3 cursor-pointer hover:bg-primary/30 hover:text-destructive-foreground profile-details-btn"
+            <div class="bg-card/50 rounded-xl flex h-[50px] w-full items-center no-underline transition-all duration-[400ms] ease-in-out text-foreground px-3 cursor-pointer hover:bg-primary/30 hover:text-destructive-foreground profile-details-btn"
                 onclick="toggleProfileDropdown()">
 
                 <!-- Profile Icon -->
