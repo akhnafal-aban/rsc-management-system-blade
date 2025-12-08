@@ -10,6 +10,8 @@ use App\Http\Requests\StoreMemberRequest;
 use App\Http\Requests\UpdateMemberRequest;
 use App\Models\Member;
 use App\Services\MemberService;
+use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class MemberController extends Controller
 {
@@ -181,5 +183,20 @@ class MemberController extends Controller
             'membership_prices' => $membershipPrices,
             'available_durations' => $availableDurations,
         ]);
+    }
+    
+    public function export(Request $request): StreamedResponse
+    {
+        $filters = $request->only(['search', 'status']);
+        $filename = 'members_' . now()->format('Ymd_His') . '.csv';
+
+        $callback = $this->memberService->exportMembersCallback($filters);
+
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+        ];
+
+        return response()->streamDownload($callback, $filename, $headers);
     }
 }

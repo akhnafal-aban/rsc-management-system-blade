@@ -31,9 +31,14 @@ Route::middleware('auth')->group(function () {
     Route::post('/member/extend', [MemberController::class, 'storeExtend'])->name('member.extend.store');
     Route::post('/member/bulk-update-status', [MemberController::class, 'bulkUpdateStatuses'])->name('member.bulk-update-status');
     Route::get('/member/registration-costs', [MemberController::class, 'getRegistrationCosts'])->name('member.registration-costs');
-    Route::resource('member', MemberController::class);
+
+    Route::get('/member/export', [MemberController::class, 'export'])->name('member.export');
+
     Route::post('/member/{member}/suspend', [MemberController::class, 'suspend'])->name('member.suspend');
     Route::post('/member/{member}/activate', [MemberController::class, 'activate'])->name('member.activate');
+
+    // TARUH PALING BAWAH
+    Route::resource('member', MemberController::class);
 
     // Attendance
     Route::get('/attendance', [AttendanceController::class, 'index'])->name('attendance.index');

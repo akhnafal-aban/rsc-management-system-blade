@@ -7,7 +7,7 @@
 
             <div class="flex flex-wrap justify-end gap-3">
                 {{-- Tombol Ekspor --}}
-                <a href="#"
+                <a href="{{ route('member.export') }}"
                     class="inline-flex items-center justify-center px-3 sm:px-6 py-2 border border-border bg-background text-foreground rounded-lg hover:bg-muted/50 transition-colors">
                     <x-ui.icon name="download" class="w-4 h-4 mr-0 sm:mr-2" />
                     <span class="hidden sm:inline">Ekspor</span>

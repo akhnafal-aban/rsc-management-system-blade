@@ -9,6 +9,8 @@ use App\Models\Member;
 use Carbon\Carbon;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
+use Closure;
+use Illuminate\Support\Str;
 
 class MemberService
 {
@@ -184,7 +186,7 @@ ORDER BY
 LIMIT 20
 SQL;
 
-        $likeQuery = '%'.$query.'%';
+        $likeQuery = '%' . $query . '%';
         $rows = DB::select($sql, [$today, $likeQuery, $likeQuery, $likeQuery]);
 
         return array_map(
@@ -376,6 +378,86 @@ SQL;
             $newId = 1;
         }
 
-        return $prefix.$newId;
+        return $prefix . $newId;
+    }
+    
+    public function exportMembersCallback(array $filters = []): Closure
+    {
+        return function () use ($filters) {
+            $handle = fopen('php://output', 'w');
+
+            // Header CSV
+            fputcsv($handle, [
+                'ID',
+                'Member Code',
+                'Name',
+                'Email',
+                'Phone',
+                'Status',
+                'Exp Date',
+                'Last Check In',
+                'Total Visits',
+                'Created At',
+                'Membership Name',
+            ]);
+
+            $query = Member::select(
+                'id',
+                'member_code',
+                'name',
+                'email',
+                'phone',
+                'status',
+                'exp_date',
+                'last_check_in',
+                'total_visits',
+                'created_at'
+            )->with('membership')->orderBy('id');
+
+            // Apply same filters seperti di getAllMembers
+            if (! empty($filters['search'])) {
+                $search = $filters['search'];
+                $query->where(function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%")
+                        ->orWhere('phone', 'like', "%{$search}%")
+                        ->orWhere('member_code', 'like', "%{$search}%");
+                });
+            }
+
+            if (! empty($filters['status'])) {
+                if ($filters['status'] === 'ACTIVE') {
+                    $query->where('status', 'ACTIVE')
+                        ->whereDate('exp_date', '>=', Carbon::today());
+                } elseif ($filters['status'] === 'EXPIRED') {
+                    $query->where('status', 'EXPIRED');
+                } elseif ($filters['status'] === 'INACTIVE') {
+                    $query->where('status', 'INACTIVE');
+                }
+            }
+
+            // Stream rows in chunks to avoid OOM
+            $query->chunkById(200, function ($members) use ($handle) {
+                foreach ($members as $m) {
+                    fputcsv($handle, [
+                        $m->id,
+                        $m->member_code,
+                        $m->name,
+                        $m->email,
+                        $m->phone,
+                        // jika status berupa enum cast, ambil value; jika string, tetap string
+                        (is_object($m->status) && property_exists($m->status, 'value')) ? $m->status->value : (string) $m->status,
+                        $m->exp_date,
+                        // last_check_in bisa null
+                        $m->last_check_in ? $m->last_check_in->format('Y-m-d H:i:s') : '',
+                        $m->total_visits ?? 0,
+                        $m->created_at ? $m->created_at->format('Y-m-d H:i:s') : '',
+                        optional($m->membership)->name ?? '',
+                    ]);
+                }
+            });
+
+            fclose($handle);
+        };
     }
 }
