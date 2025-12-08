@@ -11,9 +11,9 @@ use Illuminate\Http\Request;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
-        web: __DIR__.'/../routes/web.php',
-        commands: __DIR__.'/../routes/console.php',
-        api: __DIR__.'/../routes/api.php',
+        web: __DIR__ . '/../routes/web.php',
+        commands: __DIR__ . '/../routes/console.php',
+        api: __DIR__ . '/../routes/api.php',
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
@@ -26,18 +26,23 @@ return Application::configure(basePath: dirname(__DIR__))
         // Custom error page rendering (hanya untuk production)
         $exceptions->render(function (Throwable $e, Request $request) {
             if (config('app.debug') === true) {
-                throw $e; // Paksa Laravel memproses error asli sepenuhnya
+                return null;
             }
-        
+
             if ($request->is('api/*')) {
                 return null;
             }
 
+            // $statusCode = 500;
+            // if ($e instanceof \Symfony\Component\HttpKernel\Exception\HttpException) {
+            //     $statusCode = $e->getStatusCode();
+            // } elseif (method_exists($e, 'getCode') && $e->getCode() >= 400 && $e->getCode() < 600) {
+            //     $statusCode = $e->getCode();
+            // }
+
             $statusCode = 500;
             if ($e instanceof \Symfony\Component\HttpKernel\Exception\HttpException) {
                 $statusCode = $e->getStatusCode();
-            } elseif (method_exists($e, 'getCode') && $e->getCode() >= 400 && $e->getCode() < 600) {
-                $statusCode = $e->getCode();
             }
 
             // Map status codes to error views
