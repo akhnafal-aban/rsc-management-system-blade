@@ -25,13 +25,12 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withExceptions(function (Exceptions $exceptions): void {
         // Custom error page rendering (hanya untuk production)
         $exceptions->render(function (Throwable $e, Request $request) {
-            // Jika APP_DEBUG=true, gunakan default Laravel error handler
-            if (config('app.debug')) {
-                return null; // Let Laravel handle the error with default exception page
+            if (config('app.debug') === true) {
+                throw $e; // Paksa Laravel memproses error asli sepenuhnya
             }
-
+        
             if ($request->is('api/*')) {
-                return null; // Let API errors be handled by default
+                return null;
             }
 
             $statusCode = 500;
