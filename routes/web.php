@@ -38,28 +38,28 @@ Route::middleware('auth')->group(function () {
         // Dashboard
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
-    // Members
-    Route::get('/member/search', [MemberController::class, 'searchMembers'])->name('member.search');
-    Route::get('/member/extend', [MemberController::class, 'extend'])->name('member.extend');
-    Route::post('/member/extend', [MemberController::class, 'storeExtend'])->name('member.extend.store');
-    Route::post('/member/bulk-update-status', [MemberController::class, 'bulkUpdateStatuses'])->name('member.bulk-update-status');
-    Route::get('/member/registration-costs', [MemberController::class, 'getRegistrationCosts'])->name('member.registration-costs');
+        // Members
+        Route::get('/member/search', [MemberController::class, 'searchMembers'])->name('member.search');
+        Route::get('/member/extend', [MemberController::class, 'extend'])->name('member.extend');
+        Route::post('/member/extend', [MemberController::class, 'storeExtend'])->name('member.extend.store');
+        Route::post('/member/bulk-update-status', [MemberController::class, 'bulkUpdateStatuses'])->name('member.bulk-update-status');
+        Route::get('/member/registration-costs', [MemberController::class, 'getRegistrationCosts'])->name('member.registration-costs');
 
-    Route::get('/member/export', [MemberController::class, 'export'])->name('member.export');
+        Route::get('/member/export', [MemberController::class, 'export'])->name('member.export');
 
-    Route::post('/member/{member}/suspend', [MemberController::class, 'suspend'])->name('member.suspend');
-    Route::post('/member/{member}/activate', [MemberController::class, 'activate'])->name('member.activate');
+        Route::post('/member/{member}/suspend', [MemberController::class, 'suspend'])->name('member.suspend');
+        Route::post('/member/{member}/activate', [MemberController::class, 'activate'])->name('member.activate');
 
-    // TARUH PALING BAWAH
-    Route::resource('member', MemberController::class);
+        // TARUH PALING BAWAH
+        Route::resource('member', MemberController::class);
 
-    // Attendance
-    Route::get('/attendance', [AttendanceController::class, 'index'])->name('attendance.index');
-    Route::get('/attendance/check-in', [AttendanceController::class, 'checkInPage'])->name('attendance.check-in');
-    Route::post('/attendance/checkin', [AttendanceController::class, 'checkIn'])->name('attendance.checkin');
-    Route::post('/attendance/checkin/batch', [AttendanceController::class, 'batchCheckIn'])->name('attendance.checkin.batch');
-    Route::post('/attendance/checkout', [AttendanceController::class, 'checkOut'])->name('attendance.checkout');
-    Route::get('/attendance/export', [AttendanceController::class, 'exportTodayAttendances'])->name('attendance.export');
+        // Attendance
+        Route::get('/attendance', [AttendanceController::class, 'index'])->name('attendance.index');
+        Route::get('/attendance/check-in', [AttendanceController::class, 'checkInPage'])->name('attendance.check-in');
+        Route::post('/attendance/checkin', [AttendanceController::class, 'checkIn'])->name('attendance.checkin');
+        Route::post('/attendance/checkin/batch', [AttendanceController::class, 'batchCheckIn'])->name('attendance.checkin.batch');
+        Route::post('/attendance/checkout', [AttendanceController::class, 'checkOut'])->name('attendance.checkout');
+        Route::get('/attendance/export', [AttendanceController::class, 'exportTodayAttendances'])->name('attendance.export');
 
         // Non-Member Visits
         Route::resource('non-member-visit', NonMemberVisitController::class)->except(['show', 'edit', 'update', 'destroy']);
@@ -70,8 +70,6 @@ Route::middleware('auth')->group(function () {
 
         // Admin-only pages
         Route::middleware('role:admin')->group(function () {
-            Route::get('/staff-management', [StaffManagementController::class, 'index'])->name('admin.staff.index');
-
             // Payment History
             Route::get('/payment', [PaymentController::class, 'index'])->name('admin.payment.index');
 
@@ -86,14 +84,14 @@ Route::middleware('auth')->group(function () {
     });
 });
 
-if (app()->environment('local', 'testing')) {
-    Route::get('/test-error/{code}', function ($code) {
-        $validCodes = [400, 403, 404, 419, 429, 500, 503];
+// if (app()->environment('local', 'testing')) {
+//     Route::get('/test-error/{code}', function ($code) {
+//         $validCodes = [400, 403, 404, 419, 429, 500, 503];
 
-        if (! in_array($code, $validCodes)) {
-            abort(404, 'Error code not found');
-        }
+//         if (! in_array($code, $validCodes)) {
+//             abort(404, 'Error code not found');
+//         }
 
-        abort((int) $code, 'Test error page');
-    })->name('test.error');
-}
+//         abort((int) $code, 'Test error page');
+//     })->name('test.error');
+// }
