@@ -42,8 +42,9 @@ class AttendanceService
         $conditions = 'attendances.check_in_time BETWEEN :start AND :end';
 
         if (! empty($search)) {
-            $conditions .= ' AND (members.name LIKE :search OR members.member_code LIKE :search)';
-            $params['search'] = "%{$search}%";
+            $conditions .= ' AND (members.name LIKE :search_name OR members.member_code LIKE :search_code)';
+            $params['search_name'] = "%{$search}%";
+            $params['search_code'] = "%{$search}%";
         }
 
         if ($statusFilter === 'checkin') {

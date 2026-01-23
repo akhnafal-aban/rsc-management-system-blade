@@ -70,19 +70,6 @@ class MembershipService
                 'label' => '3 Bulan',
                 'enabled' => true,
             ],
-            // Future durations can be added here and controlled by 'enabled' flag
-            // 6 => [
-            //     'months' => 6,
-            //     'price' => 750000,
-            //     'label' => '6 Bulan',
-            //     'enabled' => false,
-            // ],
-            // 12 => [
-            //     'months' => 12,
-            //     'price' => 1400000,
-            //     'label' => '12 Bulan',
-            //     'enabled' => false,
-            // ],
         ];
     }
 
