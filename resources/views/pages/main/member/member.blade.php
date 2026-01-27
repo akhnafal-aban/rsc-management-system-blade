@@ -171,7 +171,7 @@
                                             <button type="button"
                                                 class="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-md bg-background border border-border text-destructive hover:bg-destructive/10 transition-colors"
                                                 title="Hapus"
-                                                onclick="confirmDeleteMember({{ $member->id }})">
+                                                onclick="confirmDeleteMember(this)">
                                                 <x-ui.icon name="trash" class="w-3 h-3" />
                                             </button>
                                         </form>
@@ -342,23 +342,36 @@ function confirmActivateMember(memberId) {
     );
 }
 
-function confirmDeleteMember(memberId) {
+// function confirmDeleteMember(memberId) {
+//     showConfirm(
+//         'Apakah Anda yakin ingin menghapus member ini? Tindakan ini tidak dapat dibatalkan.',
+//         function() {
+//             const form = document.querySelector(`form[action*="/member/${memberId}"][method="POST"]`);
+//             if (form) {
+//                 // Add DELETE method
+//                 const methodInput = document.createElement('input');
+//                 methodInput.type = 'hidden';
+//                 methodInput.name = '_method';
+//                 methodInput.value = 'DELETE';
+//                 form.appendChild(methodInput);
+//                 form.submit();
+//             }
+//         },
+//         'Konfirmasi Hapus Member',
+//         'error'
+//     );
+// }
+function confirmDeleteMember(button) {
     showConfirm(
         'Apakah Anda yakin ingin menghapus member ini? Tindakan ini tidak dapat dibatalkan.',
-        function() {
-            const form = document.querySelector(`form[action*="/member/${memberId}"][method="POST"]`);
-            if (form) {
-                // Add DELETE method
-                const methodInput = document.createElement('input');
-                methodInput.type = 'hidden';
-                methodInput.name = '_method';
-                methodInput.value = 'DELETE';
-                form.appendChild(methodInput);
-                form.submit();
-            }
+        function () {
+            const form = button.closest('form');
+            if (!form) return;
+            form.submit();
         },
         'Konfirmasi Hapus Member',
         'error'
     );
 }
+
 </script>
