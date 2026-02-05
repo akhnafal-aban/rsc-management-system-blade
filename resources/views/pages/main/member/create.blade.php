@@ -119,7 +119,7 @@
     <script>
         // Membership pricing - Currently available durations only
         const membershipPrices = {
-            '1': 150000,
+            '1': 135000,
             '3': 400000
         };
 

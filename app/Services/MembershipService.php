@@ -60,7 +60,7 @@ class MembershipService
         return [
             1 => [
                 'months' => 1,
-                'price' => 150000,
+                'price' => 135000,
                 'label' => '1 Bulan',
                 'enabled' => true,
             ],

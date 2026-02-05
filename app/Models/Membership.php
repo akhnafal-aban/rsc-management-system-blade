@@ -24,7 +24,7 @@ class Membership extends Model
      * Mapping harga per bulan (sementara, sebelum ada setting dari admin)
      */
     public const PRICE_MAP = [
-        1 => 150000,
+        1 => 135000,
         3 => 400000,
         6 => 750000,
         12 => 1400000,
