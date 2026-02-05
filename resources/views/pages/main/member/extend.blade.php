@@ -75,7 +75,7 @@
                             class="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent">
                             <option value="">Pilih durasi perpanjangan</option>
                             <option value="1" {{ old('membership_duration') == '1' ? 'selected' : '' }}>1 Bulan - Rp
-                                150.000</option>
+                                135.000</option>
                             <option value="3" {{ old('membership_duration') == '3' ? 'selected' : '' }}>3 Bulan - Rp
                                 400.000</option>
                         </select>
