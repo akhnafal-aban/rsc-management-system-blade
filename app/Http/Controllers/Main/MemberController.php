@@ -27,7 +27,9 @@ class MemberController extends Controller
 
     public function create()
     {
-        return view('pages.main.member.create');
+        $packages = $this->memberService->getAvailableMembershipPackages();
+
+        return view('pages.main.member.create', compact('packages'));
     }
 
     public function store(StoreMemberRequest $request)
@@ -108,7 +110,9 @@ class MemberController extends Controller
 
     public function extend()
     {
-        return view('pages.main.member.extend');
+        $packages = $this->memberService->getAvailableMembershipPackages();
+
+        return view('pages.main.member.extend', compact('packages'));
     }
 
     public function searchMembers()
@@ -134,7 +138,7 @@ class MemberController extends Controller
 
         $updatedMember = $this->memberService->extendMembership(
             (int) $validated['member_id'],
-            (int) $validated['membership_duration'],
+            (string) $validated['package_key'],
             $validated['payment_method'],
             $validated['payment_notes'] ?? null
         );
@@ -171,17 +175,17 @@ class MemberController extends Controller
     public function getRegistrationCosts()
     {
         $registrationFee = $this->memberService->getRegistrationFee();
-        $availableDurations = $this->memberService->getAvailableMembershipDurations();
+        $packages = $this->memberService->getAvailableMembershipPackages();
 
         $membershipPrices = [];
-        foreach ($availableDurations as $duration) {
-            $membershipPrices[$duration['months']] = $this->memberService->getTotalRegistrationCost($duration['months']);
+        foreach ($packages as $key => $package) {
+            $membershipPrices[$key] = $this->memberService->getTotalRegistrationCost($key);
         }
 
         return response()->json([
             'registration_fee' => $registrationFee,
             'membership_prices' => $membershipPrices,
-            'available_durations' => $availableDurations,
+            'packages' => $packages,
         ]);
     }
     

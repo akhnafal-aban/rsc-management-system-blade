@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\BusinessReportController;
 use App\Http\Controllers\Admin\PaymentController;
 use App\Http\Controllers\Admin\StaffManagementController;
 use App\Http\Controllers\Admin\StaffScheduleController;
+use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Main\AttendanceController;
 use App\Http\Controllers\Main\DashboardController;
@@ -80,6 +81,12 @@ Route::middleware('auth')->group(function () {
 
             // Business Report
             Route::get('/business-report', [BusinessReportController::class, 'index'])->name('admin.business-report.index');
+
+            // Settings
+            Route::get('/settings', [SettingsController::class, 'index'])->name('admin.settings.index');
+            Route::post('/settings/membership-packages', [SettingsController::class, 'storePackage'])->name('admin.settings.packages.store');
+            Route::put('/settings/membership-packages/{packageKey}', [SettingsController::class, 'updatePackage'])->name('admin.settings.packages.update');
+            Route::put('/settings/fees', [SettingsController::class, 'updateFees'])->name('admin.settings.fees.update');
         });
     });
 });

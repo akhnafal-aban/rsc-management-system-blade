@@ -30,12 +30,11 @@
                     </div>
                 </div>
             </div>
-
-            <button
+            {{-- <button
                 class="p-3 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors touch-manipulation"
                 title="Pengaturan" onclick="handleSettings()">
                 <x-ui.icon name="settings" class="w-5 h-5" />
-            </button>
+            </button> --}}
 
             <button onclick="handleLogout()"
                 class="p-3 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors touch-manipulation"
@@ -80,6 +79,7 @@
                 ['label' => 'Pembayaran', 'icon' => 'credit-card', 'route' => 'admin.payment.index'],
                 ['label' => 'Jadwal Staf', 'icon' => 'calendar', 'route' => 'admin.staff-schedule.index'],
                 ['label' => 'Laporan', 'icon' => 'bar-chart-3', 'route' => 'admin.business-report.index'],
+                ['label' => 'Pengaturan', 'icon' => 'settings', 'route' => 'admin.settings.index'],
             ]);
         }
         if ($mobileIsStaff) {

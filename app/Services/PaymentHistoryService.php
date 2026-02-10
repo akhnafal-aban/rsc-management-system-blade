@@ -77,7 +77,7 @@ class PaymentHistoryService
             return [
                 'id' => 'nonmember_' . $visit->id,
                 'type' => 'non_member',
-                'type_label' => 'Non-Member Visit',
+                'type_label' => 'NonMember',
                 'member_id' => null,
                 'member_name' => $visit->name,
                 'amount' => (float) $visit->amount,

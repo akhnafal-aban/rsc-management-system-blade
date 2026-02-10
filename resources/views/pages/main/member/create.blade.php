@@ -43,12 +43,17 @@
                     </div>
 
                     <div>
-                        <label for="membership_duration" class="block text-sm font-medium text-card-foreground mb-2">Durasi Membership *</label>
-                        <select id="membership_duration" name="membership_duration" required
+                        <label for="package_key" class="block text-sm font-medium text-card-foreground mb-2">Paket Membership *</label>
+                        <select id="package_key" name="package_key" required
                             class="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent">
-                            <option value="">Pilih durasi membership</option>
-                            <option value="1" {{ old('membership_duration') == '1' ? 'selected' : '' }}>1 Bulan - Rp 135.000</option>
-                            <option value="3" {{ old('membership_duration') == '3' ? 'selected' : '' }}>3 Bulan - Rp 400.000</option>
+                            <option value="">Pilih paket membership</option>
+                            @foreach ($packages as $key => $package)
+                                <option value="{{ $key }}" {{ old('package_key') == $key ? 'selected' : '' }}>
+                                    {{ $package['label'] ?? $key }}
+                                    - Rp {{ number_format($package['final_price'], 0, ',', '.') }}
+                                    ({{ $package['duration_days'] }} hari)
+                                </option>
+                            @endforeach
                         </select>
                     </div>
 
@@ -80,7 +85,9 @@
                 <div class="space-y-3">
                     <div class="flex justify-between items-center py-2 border-b border-border">
                         <span class="text-sm text-card-foreground">Biaya Pendaftaran Member Baru</span>
-                        <span class="font-semibold text-card-foreground">Rp 50.000</span>
+                        <span class="font-semibold text-card-foreground">
+                            Rp {{ number_format($packages ? app(\App\Services\MemberService::class)->getRegistrationFee() : 0, 0, ',', '.') }}
+                        </span>
                     </div>
                     
                     <div class="flex justify-between items-center py-2 border-b border-border">
@@ -90,14 +97,18 @@
                     
                     <div class="flex justify-between items-center py-3 bg-muted/50 rounded-lg px-3">
                         <span class="text-base font-semibold text-card-foreground">Total Biaya</span>
-                        <span class="text-lg font-bold text-primary" id="total-cost">Rp 50.000</span>
+                        <span class="text-lg font-bold text-primary" id="total-cost">
+                            Rp {{ number_format(app(\App\Services\MemberService::class)->getRegistrationFee(), 0, ',', '.') }}
+                        </span>
                     </div>
                 </div>
                 
                 <div class="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
                     <p class="text-sm text-blue-800 dark:text-blue-200">
                         <x-ui.icon name="info" class="w-4 h-4 inline mr-1" />
-                        <strong>Informasi:</strong> Setiap member baru dikenakan biaya pendaftaran Rp 50.000 + biaya membership sesuai durasi yang dipilih.
+                        <strong>Informasi:</strong> Setiap member baru dikenakan biaya pendaftaran
+                        Rp {{ number_format(app(\App\Services\MemberService::class)->getRegistrationFee(), 0, ',', '.') }}
+                        + biaya membership sesuai paket yang dipilih.
                     </p>
                 </div>
             </div>
@@ -117,21 +128,17 @@
     </div>
 
     <script>
-        // Membership pricing - Currently available durations only
-        const membershipPrices = {
-            '1': 135000,
-            '3': 400000
-        };
-
-        const registrationFee = 50000;
+        const packages = @json($packages);
+        const registrationFee = {{ app(\App\Services\MemberService::class)->getRegistrationFee() }};
 
         function updateCosts() {
-            const duration = document.getElementById('membership_duration').value;
+            const select = document.getElementById('package_key');
+            const selectedKey = select.value;
             const membershipCostElement = document.getElementById('membership-cost');
             const totalCostElement = document.getElementById('total-cost');
 
-            if (duration && membershipPrices[duration]) {
-                const membershipCost = membershipPrices[duration];
+            if (selectedKey && packages[selectedKey]) {
+                const membershipCost = packages[selectedKey].final_price;
                 const totalCost = registrationFee + membershipCost;
 
                 membershipCostElement.textContent = `Rp ${membershipCost.toLocaleString('id-ID')}`;
@@ -142,10 +149,7 @@
             }
         }
 
-        // Update costs when membership duration changes
-        document.getElementById('membership_duration').addEventListener('change', updateCosts);
-
-        // Initialize costs on page load
+        document.getElementById('package_key').addEventListener('change', updateCosts);
         document.addEventListener('DOMContentLoaded', updateCosts);
     </script>
 @endsection

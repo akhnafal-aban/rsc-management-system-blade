@@ -26,7 +26,9 @@ class NonMemberVisitController extends Controller
 
     public function create(): View
     {
-        return view('pages.main.non-member-visit.create');
+        $defaultAmount = $this->nonMemberVisitService->getDefaultVisitAmount();
+
+        return view('pages.main.non-member-visit.create', compact('defaultAmount'));
     }
 
     public function store(StoreNonMemberVisitRequest $request): RedirectResponse

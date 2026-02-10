@@ -55,11 +55,11 @@
                         </div>
                     </div>
                 </div>
-                <button
+                {{-- <button
                     class="p-2.5 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
                     title="Pengaturan">
                     <x-ui.icon name="settings" class="w-5 h-5" />
-                </button>
+                </button> --}}
             </div>
         </div>
 

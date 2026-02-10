@@ -5,7 +5,10 @@
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
                 <h1 class="text-xl sm:text-2xl font-bold text-foreground">Check-in Non-Member</h1>
-                <p class="text-sm text-muted-foreground mt-1">Catat kunjungan non-member dengan biaya Rp 20.000</p>
+                <p class="text-sm text-muted-foreground mt-1">
+                    Catat kunjungan non-member dengan biaya
+                    Rp {{ number_format($defaultAmount, 0, ',', '.') }}
+                </p>
             </div>
             <a href="{{ route('non-member-visit.index') }}" 
                 class="inline-flex items-center justify-center px-4 py-2 border border-border bg-background text-foreground rounded-lg hover:bg-muted/50 transition-colors w-full sm:w-auto">
@@ -59,13 +62,19 @@
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     <div>
                         <label for="amount" class="block text-sm font-medium text-card-foreground mb-2">Jumlah (Rp)</label>
-                        <input type="number" id="amount" name="amount" value="{{ old('amount', 20000) }}" min="0" step="1000"
+                        <input type="number" id="amount" name="amount"
+                            value="{{ old('amount', $defaultAmount) }}" min="0" step="1000"
                             class="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
-                            placeholder="20000">
+                            placeholder="{{ $defaultAmount }}">
                         @error('amount')
                             <p class="mt-1 text-sm text-red-500">{{ $message }}</p>
                         @enderror
-                        <p class="mt-1 text-xs text-muted-foreground">Default: Rp 20.000</p>
+                        <p class="mt-1 text-xs text-muted-foreground">
+                            Default: Rp {{ number_format($defaultAmount, 0, ',', '.') }}
+                        </p>
+                        <p class="mt-1 text-xs text-muted-foreground">
+                            (Ubah nilai default di pengaturan)
+                        </p>
                     </div>
 
                     <div>

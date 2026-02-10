@@ -10,25 +10,49 @@ use Carbon\Carbon;
 
 class MembershipService
 {
-    public function createMembership(Member $member, int $durationMonths): Membership
+    /**
+     * Membuat membership baru berdasarkan package_key.
+     */
+    public function createMembership(Member $member, string $packageKey): Membership
     {
-        $membershipData = $this->generateMembershipData($member, $durationMonths);
+        $pricing = $this->calculatePackagePricing($packageKey);
 
-        return Membership::create($membershipData);
-    }
-
-    public function createMembershipExtension(Member $member, int $durationMonths): Membership
-    {
-        // Get current membership end date or use current date as start
-        $currentMembership = $member->membership;
-        $startDate = $currentMembership ? Carbon::parse($currentMembership->end_date)->addDay() : Carbon::now();
-        $endDate = $startDate->copy()->addMonths($durationMonths);
+        $durationDays = $pricing['duration_days'];
+        $startDate = Carbon::now()->startOfDay();
+        $endDate = $startDate->copy()->addDays($durationDays - 1);
 
         return Membership::create([
             'member_id' => $member->id,
             'start_date' => $startDate->toDateString(),
             'end_date' => $endDate->toDateString(),
-            'duration_months' => $durationMonths,
+            'duration_months' => 0,
+        ]);
+    }
+
+    /**
+     * Membuat membership extension berdasarkan package_key.
+     */
+    public function createMembershipExtension(Member $member, string $packageKey): Membership
+    {
+        $pricing = $this->calculatePackagePricing($packageKey);
+        $durationDays = $pricing['duration_days'];
+
+        $today = Carbon::today();
+        $expDate = $member->exp_date ? Carbon::parse($member->exp_date) : null;
+
+        if ($expDate !== null && $expDate->gte($today)) {
+            $startDate = $expDate->copy()->addDay()->startOfDay();
+        } else {
+            $startDate = Carbon::now()->startOfDay();
+        }
+
+        $endDate = $startDate->copy()->addDays($durationDays - 1);
+
+        return Membership::create([
+            'member_id' => $member->id,
+            'start_date' => $startDate->toDateString(),
+            'end_date' => $endDate->toDateString(),
+            'duration_months' => 0,
         ]);
     }
 
@@ -49,54 +73,58 @@ class MembershipService
         return Membership::with('member')->findOrFail($id);
     }
 
-    public function getMembershipPrice(int $durationMonths): int
+    /**
+     * Menghitung informasi harga final sebuah package.
+     *
+     * Hasil:
+     * [
+     *   'package_key' => string,
+     *   'label' => string,
+     *   'base_price' => int,
+     *   'discount_percent' => int,
+     *   'final_price' => int,
+     *   'duration_days' => int,
+     * ]
+     */
+    public function calculatePackagePricing(string $packageKey): array
     {
-        return Membership::getPriceForDuration($durationMonths);
-    }
+        $package = Membership::getPackage($packageKey);
 
-    public function getAvailableDurations(): array
-    {
-        // Currently available durations - can be moved to config/settings in the future
+        if ($package === null) {
+            throw new \InvalidArgumentException(sprintf('Paket membership "%s" tidak ditemukan.', $packageKey));
+        }
+
+        $basePrice = (int) $package['price'];
+        $discountPercent = (int) $package['discount_percent'];
+        $durationDays = (int) $package['duration_days'];
+        $label = $package['label'] ?? $packageKey;
+
+        $effectivePercent = max(0, min(100, $discountPercent));
+        $finalPrice = intdiv($basePrice * (100 - $effectivePercent), 100);
+
         return [
-            1 => [
-                'months' => 1,
-                'price' => 135000,
-                'label' => '1 Bulan',
-                'enabled' => true,
-            ],
-            3 => [
-                'months' => 3,
-                'price' => 400000,
-                'label' => '3 Bulan',
-                'enabled' => true,
-            ],
+            'package_key' => $packageKey,
+            'label' => $label,
+            'base_price' => $basePrice,
+            'discount_percent' => $effectivePercent,
+            'final_price' => $finalPrice,
+            'duration_days' => $durationDays,
         ];
     }
 
-    public function getEnabledDurations(): array
+    /**
+     * Mengembalikan seluruh paket membership beserta harga finalnya.
+     */
+    public function getAllPackageOptions(): array
     {
-        return array_filter($this->getAvailableDurations(), function ($duration) {
-            return $duration['enabled'];
-        });
-    }
+        $packages = Membership::getMembershipPackages();
 
-    public function isDurationValid(int $durationMonths): bool
-    {
-        $availableDurations = $this->getAvailableDurations();
+        $options = [];
 
-        return isset($availableDurations[$durationMonths]) && $availableDurations[$durationMonths]['enabled'];
-    }
+        foreach ($packages as $key => $package) {
+            $options[$key] = $this->calculatePackagePricing($key);
+        }
 
-    private function generateMembershipData(Member $member, int $durationMonths): array
-    {
-        $startDate = Carbon::now()->startOfDay();
-        $endDate = $startDate->copy()->addMonths($durationMonths)->endOfDay();
-
-        return [
-            'member_id' => $member->id,
-            'start_date' => $startDate->toDateString(),
-            'end_date' => $endDate->toDateString(),
-            'duration_months' => $durationMonths,
-        ];
+        return $options;
     }
 }

@@ -95,7 +95,7 @@
     </div>
 
     <!-- Navigation List -->
-    <ul class="h-[calc(100%-190px)] overflow-y-auto overflow-x-hidden nav-list pb-[60px]">
+    <ul class="h-[calc(100%-150px)] overflow-y-auto overflow-x-hidden nav-list pb-[60px]">
         @php
             $authUser = auth()->user();
             $isAdmin = $authUser && $authUser->role && $authUser->role->isAdmin();
@@ -111,6 +111,7 @@
                     ['id' => 'payment', 'label' => 'Pembayaran', 'icon' => 'credit-card', 'route' => 'admin.payment.index'],
                     ['id' => 'staff-schedule', 'label' => 'Jadwal Staf', 'icon' => 'calendar', 'route' => 'admin.staff-schedule.index'],
                     ['id' => 'business-report', 'label' => 'Laporan', 'icon' => 'bar-chart-3', 'route' => 'admin.business-report.index'],
+                    ['id' => 'settings', 'label' => 'Pengaturan', 'icon' => 'settings', 'route' => 'admin.settings.index'],
                 ]);
             }
             if ($isStaff) {

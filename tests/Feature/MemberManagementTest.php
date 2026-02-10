@@ -17,7 +17,9 @@ class MemberManagementTest extends TestCase
     {
         parent::setUp();
 
-        $user = User::factory()->create();
+        $user = User::factory()->create([
+            'role' => \App\Enums\UserRole::ADMIN,
+        ]);
         $this->actingAs($user);
     }
 
@@ -43,7 +45,7 @@ class MemberManagementTest extends TestCase
             'name' => 'John Doe',
             'email' => 'john@example.com',
             'phone' => '08123456789',
-            'membership_duration' => '3',
+            'package_key' => '3_month',
             'payment_method' => 'CASH',
             'payment_notes' => 'Test payment',
         ];
@@ -169,7 +171,7 @@ class MemberManagementTest extends TestCase
 
         $extendData = [
             'member_id' => $member->id,
-            'membership_duration' => '3',
+            'package_key' => '3_month',
             'payment_method' => 'CASH',
             'payment_notes' => 'Test extension',
         ];
@@ -177,7 +179,7 @@ class MemberManagementTest extends TestCase
         $response = $this->post(route('member.extend.store'), $extendData);
 
         $response->assertRedirect();
-        $expectedDate = now()->addMonth()->addMonths(3)->format('Y-m-d');
+        $expectedDate = now()->addMonth()->addDays(90)->format('Y-m-d');
         $this->assertDatabaseHas('members', [
             'id' => $member->id,
         ]);

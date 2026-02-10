@@ -63,28 +63,32 @@ class MemberService
         return DB::transaction(function () use ($data) {
             // Generate member code dan set default status
             $data['member_code'] = $this->generateMemberId();
-            $data['status'] = $data['status'] ?? \App\Enums\MemberStatus::ACTIVE;
+            $data['status'] = $data['status'] ?? MemberStatus::ACTIVE;
 
             // Extract membership dan payment data
-            $membershipDuration = (int) $data['membership_duration'];
+            $packageKey = (string) $data['package_key'];
             $paymentMethod = $data['payment_method'];
             $paymentNotes = $data['payment_notes'] ?? null;
 
-            // Calculate exp_date automatically based on membership duration
-            $data['exp_date'] = Carbon::now()->addMonths($membershipDuration)->toDateString();
+            // Hitung exp_date berdasarkan paket membership (duration_days)
+            $pricing = $this->membershipService->calculatePackagePricing($packageKey);
+            $durationDays = $pricing['duration_days'];
+            $startDate = Carbon::now()->startOfDay();
+            $endDate = $startDate->copy()->addDays($durationDays - 1)->toDateString();
+            $data['exp_date'] = $endDate;
 
             // Remove non-member fields dari data
-            unset($data['membership_duration'], $data['payment_method'], $data['payment_notes']);
+            unset($data['package_key'], $data['payment_method'], $data['payment_notes']);
 
             // Create member
             $member = Member::create($data);
 
             // Create membership using MembershipService
-            $this->membershipService->createMembership($member, $membershipDuration);
+            $this->membershipService->createMembership($member, $packageKey);
 
             // Create payments: Registration fee + Membership fee
             $this->createRegistrationPayment($member, $paymentMethod, $paymentNotes);
-            $this->createMembershipPayment($member, $membershipDuration, $paymentMethod, $paymentNotes);
+            $this->createMembershipPayment($member, $packageKey, $paymentMethod, $paymentNotes);
 
             return $member->fresh(['membership', 'payments']);
         });
@@ -130,29 +134,23 @@ class MemberService
         return $member->fresh();
     }
 
-    public function extendMembership(int $memberId, int $duration, string $paymentMethod, ?string $paymentNotes = null): Member
+    public function extendMembership(int $memberId, string $packageKey, string $paymentMethod, ?string $paymentNotes = null): Member
     {
-        return DB::transaction(function () use ($memberId, $duration, $paymentMethod, $paymentNotes) {
+        return DB::transaction(function () use ($memberId, $packageKey, $paymentMethod, $paymentNotes) {
             $member = Member::findOrFail($memberId);
 
-            // Extend from current exp_date, or from now if exp_date is in the past
-            $currentExpDate = Carbon::parse($member->exp_date);
-            $today = Carbon::today();
+            // Create new membership record for extension
+            $membership = $this->membershipService->createMembershipExtension($member, $packageKey);
 
-            $baseDate = $currentExpDate->isFuture() ? $currentExpDate : $today;
-            $newExpDate = $baseDate->addMonths($duration)->toDateString();
-
-            // Update exp_date
-            $member->update(['exp_date' => $newExpDate]);
+            // Update exp_date mengikuti end_date membership terbaru
+            $member->update(['exp_date' => $membership->end_date]);
 
             // Auto-update status based on new exp_date
             $this->autoUpdateMemberStatus($member);
 
-            // Create new membership record for extension
-            $this->membershipService->createMembershipExtension($member, $duration);
-
             // Create new payment using PaymentService
-            $amount = $this->membershipService->getMembershipPrice($duration);
+            $pricing = $this->membershipService->calculatePackagePricing($packageKey);
+            $amount = $pricing['final_price'];
             $this->paymentService->createPayment($member, $amount, $paymentMethod, $paymentNotes);
 
             return $member->fresh(['membership', 'payments']);
@@ -323,7 +321,14 @@ SQL;
 
     private function createRegistrationPayment(Member $member, string $paymentMethod, ?string $paymentNotes = null): void
     {
-        $registrationFee = 50000; // Biaya pendaftaran member baru
+        $fees = \App\Models\Membership::getFees();
+        $registrationFee = $fees['new_member_fee'] ?? 0;
+
+        // ** //
+        if ($registrationFee <= 0) {
+            return;
+        }
+
         $this->paymentService->createPayment(
             $member,
             $registrationFee,
@@ -332,38 +337,38 @@ SQL;
         );
     }
 
-    private function createMembershipPayment(Member $member, int $membershipDuration, string $paymentMethod, ?string $paymentNotes = null): void
+    private function createMembershipPayment(Member $member, string $packageKey, string $paymentMethod, ?string $paymentNotes = null): void
     {
-        $membershipAmount = $this->membershipService->getMembershipPrice($membershipDuration);
+        $pricing = $this->membershipService->calculatePackagePricing($packageKey);
+        $membershipAmount = $pricing['final_price'];
+        $label = $pricing['label'];
+
         $this->paymentService->createPayment(
             $member,
             $membershipAmount,
             $paymentMethod,
-            $paymentNotes ? "Membership {$membershipDuration} bulan: {$paymentNotes}" : "Biaya membership {$membershipDuration} bulan"
+            $paymentNotes ? "Membership {$label}: {$paymentNotes}" : "Biaya membership {$label}"
         );
     }
 
     public function getRegistrationFee(): int
     {
-        return 50000; // Biaya pendaftaran member baru
+        $fees = \App\Models\Membership::getFees();
+
+        return $fees['new_member_fee'] ?? 0;
     }
 
-    public function getTotalRegistrationCost(int $membershipDuration): int
+    public function getTotalRegistrationCost(string $packageKey): int
     {
         $registrationFee = $this->getRegistrationFee();
-        $membershipCost = $this->membershipService->getMembershipPrice($membershipDuration);
+        $pricing = $this->membershipService->calculatePackagePricing($packageKey);
 
-        return $registrationFee + $membershipCost;
+        return $registrationFee + $pricing['final_price'];
     }
 
-    public function getAvailableMembershipDurations(): array
+    public function getAvailableMembershipPackages(): array
     {
-        return $this->membershipService->getEnabledDurations();
-    }
-
-    public function validateMembershipDuration(int $duration): bool
-    {
-        return $this->membershipService->isDurationValid($duration);
+        return $this->membershipService->getAllPackageOptions();
     }
 
     private function generateMemberId(): string

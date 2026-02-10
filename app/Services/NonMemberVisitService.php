@@ -11,11 +11,11 @@ use Illuminate\Support\Facades\DB;
 
 class NonMemberVisitService
 {
-    private const DEFAULT_VISIT_AMOUNT = 20000;
-
     public function createNonMemberVisit(array $data, int $userId): NonMemberVisit
     {
-        $data['amount'] = $data['amount'] ?? self::DEFAULT_VISIT_AMOUNT;
+        if (! array_key_exists('amount', $data) || $data['amount'] === null || $data['amount'] === '') {
+            $data['amount'] = $this->getDefaultVisitAmount();
+        }
         $data['created_by'] = $userId;
         $data['visit_time'] = Carbon::now();
 
@@ -57,5 +57,12 @@ class NonMemberVisitService
     public function getNonMemberVisitById(int $id): NonMemberVisit
     {
         return NonMemberVisit::with('creator')->findOrFail($id);
+    }
+
+    public function getDefaultVisitAmount(): int
+    {
+        $fees = \App\Models\Membership::getFees();
+
+        return $fees['non_member_visit_daily'] ?? 0;
     }
 }
