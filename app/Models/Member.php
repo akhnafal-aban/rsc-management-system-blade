@@ -89,4 +89,17 @@ class Member extends Model
     {
         return $this->status === MemberStatus::ACTIVE && ! $this->isExpired();
     }
+
+    // public static function resolveStatus(Carbon $expDate, Carbon $today): MemberStatus
+    // {
+    //     if ($expDate->greaterThanOrEqualTo($today)) {
+    //         return MemberStatus::ACTIVE;
+    //     }
+
+    //     if ($expDate->greaterThanOrEqualTo($today->copy()->subMonths(3))) {
+    //         return MemberStatus::EXPIRED;
+    //     }
+
+    //     return MemberStatus::INACTIVE;
+    // }
 }
