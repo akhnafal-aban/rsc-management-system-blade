@@ -16,6 +16,10 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Middleware\RequireShiftConfirmation;
 use Illuminate\Support\Facades\Route;
 
+Route::get('/opcache-status', function() {
+    return response()->json(opcache_get_status());
+});
+
 // Guest-only routes
 Route::middleware('guest')->group(function () {
     Route::get('/', function () {
