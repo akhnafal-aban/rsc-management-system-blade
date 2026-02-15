@@ -10,11 +10,8 @@ Route::prefix('auth')->group(function () {
     Route::post('claim/complete', [AuthController::class, 'completeClaim']);
 });
 
-Route::get('dashboard', [DashboardController::class, 'index']);
-
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('auth/user', [AuthController::class, 'user']);
     Route::post('auth/logout', [AuthController::class, 'logout']);
+    Route::get('dashboard', [DashboardController::class, 'index']);
 });
-
-
