@@ -35,6 +35,7 @@ class Member extends Model
             'last_check_in' => 'datetime',
             'has_checked_in_today' => 'boolean',
             'can_checkin' => 'boolean',
+            'created_at' => 'datetime',
         ];
     }
 
@@ -56,6 +57,11 @@ class Member extends Model
     public function payments(): HasMany
     {
         return $this->hasMany(Payment::class);
+    }
+
+    public function user(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(User::class);
     }
 
     public function scopeActive(Builder $query): Builder
@@ -89,6 +95,8 @@ class Member extends Model
     {
         return $this->status === MemberStatus::ACTIVE && ! $this->isExpired();
     }
+
+
 
     // public static function resolveStatus(Carbon $expDate, Carbon $today): MemberStatus
     // {

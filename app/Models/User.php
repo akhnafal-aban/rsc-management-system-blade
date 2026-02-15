@@ -23,6 +23,8 @@ class User extends Authenticatable
         'email',
         'password',
         'role',
+        'google_id',
+        'member_id',
     ];
 
     /**
@@ -77,5 +79,10 @@ class User extends Authenticatable
     public function createdNonMemberVisits()
     {
         return $this->hasMany(NonMemberVisit::class, 'created_by');
+    }
+
+    public function member()
+    {
+        return $this->belongsTo(Member::class);
     }
 }

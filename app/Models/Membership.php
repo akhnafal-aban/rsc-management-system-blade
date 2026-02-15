@@ -21,6 +21,10 @@ class Membership extends Model
      */
     private const PRICING_RELATIVE_PATH = 'app/public/membership_pricing.json';
 
+    protected $casts = [
+        'start_date' => 'date',
+    ];
+
     protected $fillable = [
         'member_id',
         'start_date',

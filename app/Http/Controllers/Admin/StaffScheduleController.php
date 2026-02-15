@@ -27,6 +27,8 @@ class StaffScheduleController extends Controller
         : null;
         $schedules = $this->staffScheduleService->getScheduleForMonth($month, $userId);
         $staffList = $this->staffScheduleService->getAllStaff();
+        // Get staff schedule
+        $staffSchedules = $this->staffScheduleService->getScheduleForMonth($month);
         $shiftTypes = ShiftType::cases();
 
         return view('pages.admin.staff-schedule.index', compact('schedules', 'staffList', 'shiftTypes', 'month'));
