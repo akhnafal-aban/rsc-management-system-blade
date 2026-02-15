@@ -17,7 +17,7 @@ class ExtendMembershipRequest extends FormRequest
     {
         return [
             'member_id' => 'required|integer|exists:members,id',
-            'membership_duration' => 'required|integer|in:1,3,6,12',
+            'package_key' => 'required|string|max:100',
             'payment_method' => 'required|string|in:CASH,TRANSFER,EWALLET',
             'payment_notes' => 'nullable|string|max:500',
         ];
@@ -28,8 +28,8 @@ class ExtendMembershipRequest extends FormRequest
         return [
             'member_id.required' => 'Member harus dipilih.',
             'member_id.exists' => 'Member yang dipilih tidak ditemukan.',
-            'membership_duration.required' => 'Durasi membership harus dipilih.',
-            'membership_duration.in' => 'Durasi membership tidak valid.',
+            'package_key.required' => 'Paket membership harus dipilih.',
+            'package_key.string' => 'Paket membership tidak valid.',
             'payment_method.required' => 'Metode pembayaran harus dipilih.',
             'payment_method.in' => 'Metode pembayaran tidak valid.',
             'payment_notes.max' => 'Catatan pembayaran maksimal 500 karakter.',

@@ -28,10 +28,10 @@
                     <x-ui.icon name="users" class="w-8 h-8 text-muted-foreground mx-auto mb-2 block" />
                     <span class="text-sm font-medium text-card-foreground">Tambah Member</span>
                 </a>
-                <a href="#"
+                <a href="{{ route('non-member-visit.index') }}"
                     class="p-4 border-2 border-dashed border-border rounded-lg hover:border-chart-3 hover:bg-chart-3/10 transition-colors text-center">
-                    <x-ui.icon name="trending-up" class="w-8 h-8 text-muted-foreground mx-auto mb-2 block" />
-                    <span class="text-sm font-medium text-card-foreground">Coming Soon</span>
+                    <x-ui.icon name="user-plus" class="w-8 h-8 text-muted-foreground mx-auto mb-2 block" />
+                    <span class="text-sm font-medium text-card-foreground">Non-Member Visit</span>
                 </a>
                 <a href="#"
                     class="p-4 border-2 border-dashed border-border rounded-lg hover:border-chart-4 hover:bg-chart-4/10 transition-colors text-center">

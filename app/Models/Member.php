@@ -33,6 +33,8 @@ class Member extends Model
             'status' => MemberStatus::class,
             'exp_date' => 'date',
             'last_check_in' => 'datetime',
+            'has_checked_in_today' => 'boolean',
+            'can_checkin' => 'boolean',
         ];
     }
 
@@ -87,4 +89,17 @@ class Member extends Model
     {
         return $this->status === MemberStatus::ACTIVE && ! $this->isExpired();
     }
+
+    // public static function resolveStatus(Carbon $expDate, Carbon $today): MemberStatus
+    // {
+    //     if ($expDate->greaterThanOrEqualTo($today)) {
+    //         return MemberStatus::ACTIVE;
+    //     }
+
+    //     if ($expDate->greaterThanOrEqualTo($today->copy()->subMonths(3))) {
+    //         return MemberStatus::EXPIRED;
+    //     }
+
+    //     return MemberStatus::INACTIVE;
+    // }
 }

@@ -17,7 +17,6 @@ final class RoleMiddleware
         if (!$user || !$user->role instanceof UserRole) {
             abort(403, 'Unauthorized.');
         }
-
         if ($role === UserRole::ADMIN->value && !$user->isAdmin()) {
             abort(403, 'Admin only.');
         }

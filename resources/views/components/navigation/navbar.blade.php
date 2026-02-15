@@ -4,7 +4,6 @@
     }
 </style>
 
-
 <nav class="hidden sm:block bg-card border-b border-border px-4 sm:px-6 py-3 shadow-sm fixed top-0 z-40 transition-all duration-500 ease-in-out"
     style="left: 78px; right: 0;">
     <div class="flex items-center justify-between">
@@ -36,11 +35,10 @@
                     <button id="notification-btn"
                         class="p-2.5 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors relative"
                         title="Notifikasi" onclick="toggleNotificationPopup()">
-                        <!-- Bell icon - will be dynamically switched between normal and notification state -->
+                        <!-- Bell icon -->
                         <div id="bell-icon" class="transition-all duration-300">
                             <x-ui.icon name="bell" class="w-5 h-5 transition-all duration-300" id="bell-svg" />
                         </div>
-                        <!-- Red notification badge -->
                         <div id="notification-badge" class="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full hidden"></div>
                     </button>
 
@@ -57,11 +55,11 @@
                         </div>
                     </div>
                 </div>
-                <button
+                {{-- <button
                     class="p-2.5 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
                     title="Pengaturan">
                     <x-ui.icon name="settings" class="w-5 h-5" />
-                </button>
+                </button> --}}
             </div>
         </div>
 
@@ -70,15 +68,14 @@
             <div class="relative">
                 <button id="notification-btn-mobile"
                     class="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors relative"
-                    title="Notifikasi" onclick="toggleNotificationPopup()">
+                    title="Notifikasi" onclick="toggleMobileNotificationPopup()">
                     <div id="bell-icon-mobile" class="transition-all duration-300">
                         <x-ui.icon name="bell" class="w-5 h-5 transition-all duration-300" id="bell-svg-mobile" />
                     </div>
-                    <!-- Red notification badge -->
                     <div id="notification-badge-mobile" class="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full hidden"></div>
                 </button>
 
-                <!-- Mobile Notification Popup -->
+                <!-- Mobile Notification Popup (keberadaan markup tetap, tetapi logic di-handle global) -->
                 <div id="notification-popup-mobile"
                     class="fixed inset-x-4 top-20 bg-card border border-border rounded-lg shadow-lg z-50 hidden">
                     <div class="p-4 border-b border-border">
@@ -96,280 +93,206 @@
 </nav>
 
 <script>
-    let notificationInterval;
+    // Global guard mencegah inisialisasi ganda
+    if (!window.__notifInit) {
+        window.__notifInit = true;
 
-    function handleLogout() {
-        showConfirm(
-            'Apakah Anda yakin ingin keluar dari sistem?',
-            function() {
-                const form = document.createElement('form');
-                form.method = 'POST';
-                form.action = '{{ route('logout') }}';
+        const NOTIF_ROUTE = '{{ route('notifications.scheduled-commands') }}';
+        const MARK_READ_ROUTE = '{{ route('notifications.mark-read') }}';
 
-                const token = document.createElement('input');
-                token.type = 'hidden';
-                token.name = '_token';
-                token.value = '{{ csrf_token() }}';
-
-                form.appendChild(token);
-                document.body.appendChild(form);
-                form.submit();
-            },
-            'Konfirmasi Logout',
-            'warning'
-        );
-    }
-
-    function toggleNotificationPopup() {
-        const popup = document.getElementById('notification-popup');
-        const popupMobile = document.getElementById('notification-popup-mobile');
-
-        // Determine which popup to use based on screen size
-        const isMobile = window.innerWidth < 1024;
-        const activePopup = isMobile ? popupMobile : popup;
-
-        if (!activePopup) return;
-
-        const isHidden = activePopup.classList.contains('hidden');
-
-        if (isHidden) {
-            loadNotifications();
-            activePopup.classList.remove('hidden');
-            // Mark notifications as read when popup is opened
-            markNotificationsAsRead();
-        } else {
-            activePopup.classList.add('hidden');
+        function fetchNotifications() {
+            return fetch(NOTIF_ROUTE, { credentials: 'same-origin' })
+                .then(r => {
+                    if (!r.ok) throw new Error('Network response was not ok');
+                    return r.json();
+                });
         }
-    }
 
-    function markNotificationsAsRead() {
-        fetch('{{ route('notifications.mark-read') }}', {
+        function renderNotificationsTo(targetEl, data) {
+            if (!targetEl) return;
+            if (!Array.isArray(data.notifications) || data.notifications.length === 0) {
+                targetEl.innerHTML = `
+                    <div class="p-4 text-center text-muted-foreground">
+                        <span class="icon-bell w-8 h-8 mx-auto mb-2 opacity-50 block"></span>
+                        <p>Tidak ada notifikasi</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '';
+            data.notifications.forEach(notification => {
+                const statusColor = notification.status === 'success' ? 'text-green-600' : 'text-red-600';
+                const statusIcon = notification.status === 'success' ? 'check-circle' : 'x-circle';
+                let notificationContent = '';
+                if (notification.command === 'Auto Check-out Process' && notification.member_name && notification.checkout_time) {
+                    notificationContent = `
+                        <p class="text-sm font-medium text-card-foreground">${notification.command}</p>
+                        <p class="text-xs ${statusColor} capitalize">${notification.status}</p>
+                        <p class="text-xs text-muted-foreground mt-1">${notification.member_name} berhasil di check-out otomatis ${notification.checkout_time}</p>
+                        <p class="text-xs text-muted-foreground mt-1">${notification.date} ${notification.time}</p>
+                    `;
+                } else if (notification.command === 'Membership Expiration Check' && notification.member_name && !notification.checkout_time) {
+                    notificationContent = `
+                        <p class="text-sm font-medium text-card-foreground">${notification.command}</p>
+                        <p class="text-xs ${statusColor} capitalize">${notification.status}</p>
+                        <p class="text-xs text-muted-foreground mt-1">${notification.member_name} keanggotaan menjadi inactive dikarenakan expired</p>
+                        <p class="text-xs text-muted-foreground mt-1">${notification.date} ${notification.time}</p>
+                    `;
+                } else {
+                    notificationContent = `
+                        <p class="text-sm font-medium text-card-foreground">${notification.command}</p>
+                        <p class="text-xs ${statusColor} capitalize">${notification.status}</p>
+                        ${notification.message ? `<p class="text-xs text-muted-foreground mt-1">${notification.message}</p>` : ''}
+                        <p class="text-xs text-muted-foreground mt-1">${notification.date} ${notification.time}</p>
+                    `;
+                }
+
+                html += `
+                    <div class="p-3 border-b border-border last:border-b-0 hover:bg-muted/50">
+                        <div class="flex items-start space-x-3">
+                            <div class="flex-shrink-0 mt-0.5">
+                                <span class="${statusIcon === 'check-circle' ? 'icon-check' : 'icon-x'} w-4 h-4 ${statusColor}"></span>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                ${notificationContent}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            targetEl.innerHTML = html;
+        }
+
+        function updateDesktopBellIcon(hasNew) {
+            const bellIcon = document.getElementById('bell-icon');
+            const bellSvg = document.getElementById('bell-svg');
+            const notificationBadge = document.getElementById('notification-badge');
+
+            if (!bellIcon) return;
+
+            if (hasNew) {
+                bellIcon.classList.add('text-orange-500', 'animate-pulse');
+                bellIcon.classList.remove('text-muted-foreground');
+                if (bellSvg) {
+                    bellSvg.classList.add('text-orange-500');
+                    bellSvg.classList.remove('text-muted-foreground');
+                }
+                if (notificationBadge) notificationBadge.classList.remove('hidden');
+            } else {
+                bellIcon.classList.remove('text-orange-500', 'animate-pulse');
+                bellIcon.classList.add('text-muted-foreground');
+                if (bellSvg) {
+                    bellSvg.classList.remove('text-orange-500');
+                    bellSvg.classList.add('text-muted-foreground');
+                }
+                if (notificationBadge) notificationBadge.classList.add('hidden');
+            }
+        }
+
+        function updateMobileBellIcon(hasNew) {
+            const bellIcon = document.getElementById('bell-icon-mobile');
+            const bellSvg = document.getElementById('bell-svg-mobile');
+            const notificationBadge = document.getElementById('notification-badge-mobile');
+
+            if (!bellIcon) return;
+
+            if (hasNew) {
+                bellIcon.classList.add('text-orange-500', 'animate-pulse');
+                bellIcon.classList.remove('text-muted-foreground');
+                if (bellSvg) {
+                    bellSvg.classList.add('text-orange-500');
+                    bellSvg.classList.remove('text-muted-foreground');
+                }
+                if (notificationBadge) notificationBadge.classList.remove('hidden');
+            } else {
+                bellIcon.classList.remove('text-orange-500', 'animate-pulse');
+                bellIcon.classList.add('text-muted-foreground');
+                if (bellSvg) {
+                    bellSvg.classList.remove('text-orange-500');
+                    bellSvg.classList.add('text-muted-foreground');
+                }
+                if (notificationBadge) notificationBadge.classList.add('hidden');
+            }
+        }
+
+        function populateNotifications(data) {
+            const content = document.getElementById('notification-content');
+            const contentMobile = document.getElementById('notification-content-mobile');
+            renderNotificationsTo(content, data);
+            renderNotificationsTo(contentMobile, data);
+            updateDesktopBellIcon(data.has_new);
+            updateMobileBellIcon(data.has_new);
+        }
+
+        function markNotificationsAsRead() {
+            fetch(MARK_READ_ROUTE, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                // Update bell icon to normal state
-                updateBellIcon(false);
-            })
-            .catch(error => {
-                console.error('Error marking notifications as read:', error);
-            });
-    }
+                },
+                credentials: 'same-origin'
+            }).then(() => {
+                updateDesktopBellIcon(false);
+                updateMobileBellIcon(false);
+            }).catch(err => console.error('Error marking notifications as read:', err));
+        }
 
-    function loadNotifications() {
-        console.log('Loading desktop notifications...');
-        fetch('{{ route('notifications.scheduled-commands') }}')
-            .then(response => response.json())
-            .then(data => {
-                console.log('Desktop notification data:', data);
-                const content = document.getElementById('notification-content');
-                const contentMobile = document.getElementById('notification-content-mobile');
-
-                const updateContent = (targetContent) => {
-                    if (!targetContent) return;
-
-                    if (data.notifications.length === 0) {
-                        targetContent.innerHTML = `
-          <div class="p-4 text-center text-muted-foreground">
-            <span class="icon-bell w-8 h-8 mx-auto mb-2 opacity-50 block"></span>
-            <p>Tidak ada notifikasi</p>
-          </div>
-        `;
-                    } else {
-                        let html = '';
-                        data.notifications.forEach(notification => {
-                            const statusColor = notification.status === 'success' ? 'text-green-600' :
-                                'text-red-600';
-                            const statusIcon = notification.status === 'success' ? 'check-circle' :
-                                'x-circle';
-
-                            const iconClass = statusIcon === 'check-circle' ? 'icon-check' : 'icon-x';
-                            // Format notification content based on command type
-                            let notificationContent = '';
-                            if (notification.command === 'Auto Check-out Process' && notification
-                                .member_name && notification.checkout_time) {
-                                notificationContent = `
-                                <p class="text-sm font-medium text-card-foreground">${notification.command}</p>
-                                <p class="text-xs ${statusColor} capitalize">${notification.status}</p>
-                                <p class="text-xs text-muted-foreground mt-1">${notification.member_name} berhasil di check-out otomatis ${notification.checkout_time}</p>
-                                <p class="text-xs text-muted-foreground mt-1">${notification.date} ${notification.time}</p>
-                            `;
-                            } else if (notification.command === 'Membership Expiration Check' &&
-                                notification.member_name && !notification.checkout_time) {
-                                notificationContent = `
-                                <p class="text-sm font-medium text-card-foreground">${notification.command}</p>
-                                <p class="text-xs ${statusColor} capitalize">${notification.status}</p>
-                                <p class="text-xs text-muted-foreground mt-1">${notification.member_name} keanggotaan menjadi inactive dikarenakan expired</p>
-                                <p class="text-xs text-muted-foreground mt-1">${notification.date} ${notification.time}</p>
-                            `;
-                            } else {
-                                notificationContent = `
-                                <p class="text-sm font-medium text-card-foreground">${notification.command}</p>
-                                <p class="text-xs ${statusColor} capitalize">${notification.status}</p>
-                                ${notification.message ? `<p class="text-xs text-muted-foreground mt-1">${notification.message}</p>` : ''}
-                                <p class="text-xs text-muted-foreground mt-1">${notification.date} ${notification.time}</p>
-                            `;
-                            }
-
-                            html += `
-            <div class="p-3 border-b border-border last:border-b-0 hover:bg-muted/50">
-              <div class="flex items-start space-x-3">
-                <div class="flex-shrink-0 mt-0.5">
-                  <span class="${iconClass} w-4 h-4 ${statusColor}"></span>
-                </div>
-                <div class="flex-1 min-w-0">
-                  ${notificationContent}
-                </div>
-              </div>
-            </div>
-          `;
-                        });
-                        targetContent.innerHTML = html;
-                    }
-                };
-
-                // Update both desktop and mobile content
-                updateContent(content);
-                updateContent(contentMobile);
-
-                // Update bell icon based on notification status
-                console.log('Updating desktop bell icon with has_new:', data.has_new);
-                updateBellIcon(data.has_new);
-            })
-            .catch(error => {
-                console.error('Error loading notifications:', error);
-                const errorHtml = `
-        <div class="p-4 text-center text-red-600">
-          <p>Gagal memuat notifikasi</p>
-        </div>
-      `;
-                if (content) content.innerHTML = errorHtml;
-                if (contentMobile) contentMobile.innerHTML = errorHtml;
-            });
-    }
-
-    function updateBellIcon(hasNew) {
-        console.log('updateBellIcon called with hasNew:', hasNew);
-        // Update desktop bell icon
-        const bellIcon = document.getElementById('bell-icon');
-        const bellSvg = document.getElementById('bell-svg');
-        const notificationBadge = document.getElementById('notification-badge');
-
-        // Update mobile bell icon
-        const bellIconMobile = document.getElementById('bell-icon-mobile');
-        const bellSvgMobile = document.getElementById('bell-svg-mobile');
-        const notificationBadgeMobile = document.getElementById('notification-badge-mobile');
-
-        console.log('Desktop elements found:', { bellIcon, bellSvg, notificationBadge });
-        console.log('Mobile elements found:', { bellIconMobile, bellSvgMobile, notificationBadgeMobile });
-
-        const updateIcon = (icon, svg, badge) => {
-            if (!icon) return;
-
-            if (hasNew) {
-                // Add notification state classes - orange color with pulse animation
-                icon.classList.add('text-orange-500', 'animate-pulse');
-                icon.classList.remove('text-muted-foreground');
-
-                // Add visual indicator that there are new notifications
-                if (svg) {
-                    svg.classList.add('text-orange-500');
-                    svg.classList.remove('text-muted-foreground');
-                }
-                
-                // Show red notification badge
-                if (badge) {
-                    console.log('Showing red notification badge');
-                    badge.classList.remove('hidden');
-                } else {
-                    console.log('Notification badge element not found!');
-                }
-            } else {
-                // Remove notification state classes - back to normal muted color
-                icon.classList.remove('text-orange-500', 'animate-pulse');
-                icon.classList.add('text-muted-foreground');
-
-                if (svg) {
-                    svg.classList.remove('text-orange-500');
-                    svg.classList.add('text-muted-foreground');
-                }
-                
-                // Hide red notification badge
-                if (badge) {
-                    badge.classList.add('hidden');
-                }
-            }
-        };
-
-        updateIcon(bellIcon, bellSvg, notificationBadge);
-        updateIcon(bellIconMobile, bellSvgMobile, notificationBadgeMobile);
-    }
-
-    function startNotificationPolling() {
-        // Load notifications immediately
-        loadNotifications();
-
-        // Poll every 2 minutes
-        notificationInterval = setInterval(() => {
-            fetch('{{ route('notifications.scheduled-commands') }}')
-                .then(response => response.json())
-                .then(data => {
-                    updateBellIcon(data.has_new);
-                })
-                .catch(error => {
-                    console.error('Error polling notifications:', error);
+        function toggleNotificationPopup() {
+            const popup = document.getElementById('notification-popup');
+            const activePopup = popup;
+            if (!activePopup) return;
+            const isHidden = activePopup.classList.contains('hidden');
+            if (isHidden) {
+                fetchNotifications().then(populateNotifications).catch(err => {
+                    const content = document.getElementById('notification-content');
+                    if (content) content.innerHTML = `<div class="p-4 text-center text-red-600"><p>Gagal memuat notifikasi</p></div>`;
                 });
-        }, 120000); // 2 minutes
-    }
-
-    // Close popup when clicking outside
-    document.addEventListener('click', function(event) {
-        const popup = document.getElementById('notification-popup');
-        const popupMobile = document.getElementById('notification-popup-mobile');
-        const button = document.getElementById('notification-btn');
-        const buttonMobile = document.getElementById('notification-btn-mobile');
-
-        // Check desktop popup
-        if (popup && !popup.classList.contains('hidden') &&
-            !popup.contains(event.target) &&
-            !button.contains(event.target)) {
-            popup.classList.add('hidden');
+                activePopup.classList.remove('hidden');
+                markNotificationsAsRead();
+            } else {
+                activePopup.classList.add('hidden');
+            }
         }
 
-        // Check mobile popup
-        if (popupMobile && !popupMobile.classList.contains('hidden') &&
-            !popupMobile.contains(event.target) &&
-            !buttonMobile.contains(event.target)) {
-            popupMobile.classList.add('hidden');
-        }
-    });
-
-    // Mobile menu button functionality
-    document.addEventListener('DOMContentLoaded', function() {
-        const mobileMenuBtn = document.getElementById('mobile-menu-btn');
-        const sidebar = document.getElementById('sidebar');
-
-        if (mobileMenuBtn && sidebar) {
-            mobileMenuBtn.addEventListener('click', function() {
-                // Toggle sidebar by clicking the sidebar button
-                const sidebarBtn = document.getElementById('btn');
-                if (sidebarBtn) {
-                    sidebarBtn.click();
-                }
-            });
+        function toggleMobileNotificationPopup() {
+            const popupMobile = document.getElementById('notification-popup-mobile');
+            if (!popupMobile) return;
+            const isHidden = popupMobile.classList.contains('hidden');
+            if (isHidden) {
+                fetchNotifications().then(populateNotifications).catch(err => {
+                    const contentMobile = document.getElementById('notification-content-mobile');
+                    if (contentMobile) contentMobile.innerHTML = `<div class="p-4 text-center text-red-600"><p>Gagal memuat notifikasi</p></div>`;
+                });
+                popupMobile.classList.remove('hidden');
+                markNotificationsAsRead();
+            } else {
+                popupMobile.classList.add('hidden');
+            }
         }
 
-        startNotificationPolling();
-    });
+        // Expose necessary functions to global scope so mobile partial can call them
+        window.toggleNotificationPopup = toggleNotificationPopup;
+        window.toggleMobileNotificationPopup = toggleMobileNotificationPopup;
+        window.markNotificationsAsRead = markNotificationsAsRead;
+        window.loadNotifications = fetchNotifications;
 
-    // Cleanup interval when page unloads
-    window.addEventListener('beforeunload', function() {
-        if (notificationInterval) {
-            clearInterval(notificationInterval);
-        }
-    });
+        // Close popup when clicking outside (single global handler)
+        document.addEventListener('click', function(event) {
+            const popup = document.getElementById('notification-popup');
+            const popupMobile = document.getElementById('notification-popup-mobile');
+            const button = document.getElementById('notification-btn');
+            const buttonMobile = document.getElementById('notification-btn-mobile');
+
+            if (popup && !popup.classList.contains('hidden') && !popup.contains(event.target) && button && !button.contains(event.target)) {
+                popup.classList.add('hidden');
+            }
+
+            if (popupMobile && !popupMobile.classList.contains('hidden') && !popupMobile.contains(event.target) && buttonMobile && !buttonMobile.contains(event.target)) {
+                popupMobile.classList.add('hidden');
+            }
+        });
+    } // end guard
 </script>

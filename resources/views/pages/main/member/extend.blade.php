@@ -68,16 +68,19 @@
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                        <label for="membership_duration" class="block text-sm font-medium text-card-foreground mb-2">
-                            Durasi Perpanjangan <span class="text-destructive">*</span>
+                        <label for="package_key" class="block text-sm font-medium text-card-foreground mb-2">
+                            Paket Perpanjangan <span class="text-destructive">*</span>
                         </label>
-                        <select id="membership_duration" name="membership_duration" required
+                        <select id="package_key" name="package_key" required
                             class="w-full px-3 py-2 bg-input border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent">
-                            <option value="">Pilih durasi perpanjangan</option>
-                            <option value="1" {{ old('membership_duration') == '1' ? 'selected' : '' }}>1 Bulan - Rp
-                                150.000</option>
-                            <option value="3" {{ old('membership_duration') == '3' ? 'selected' : '' }}>3 Bulan - Rp
-                                400.000</option>
+                            <option value="">Pilih paket perpanjangan</option>
+                            @foreach ($packages as $key => $package)
+                                <option value="{{ $key }}" {{ old('package_key') == $key ? 'selected' : '' }}>
+                                    {{ $package['label'] ?? $key }}
+                                    - Rp {{ number_format($package['final_price'], 0, ',', '.') }}
+                                    ({{ $package['duration_days'] }} hari)
+                                </option>
+                            @endforeach
                         </select>
                     </div>
 
@@ -300,33 +303,33 @@
                 });
 
                 // Update submit button state
-                function updateSubmitButton() {
+            function updateSubmitButton() {
                     const hasMember = memberIdInput.value !== '';
-                    const hasDuration = document.getElementById('membership_duration').value !== '';
+                    const hasPackage = document.getElementById('package_key').value !== '';
                     const hasPaymentMethod = document.getElementById('payment_method').value !== '';
 
                     console.log('Submit button state check:', {
                         hasMember,
-                        hasDuration,
+                        hasPackage,
                         hasPaymentMethod,
                         memberId: memberIdInput.value,
-                        duration: document.getElementById('membership_duration').value,
+                        packageKey: document.getElementById('package_key').value,
                         paymentMethod: document.getElementById('payment_method').value
                     });
 
-                    const shouldEnable = hasMember && hasDuration && hasPaymentMethod;
+                    const shouldEnable = hasMember && hasPackage && hasPaymentMethod;
                     submitBtn.disabled = !shouldEnable;
 
                     console.log('Submit button enabled:', shouldEnable);
                 }
 
                 // Listen for form field changes
-                const durationSelect = document.getElementById('membership_duration');
+                const packageSelect = document.getElementById('package_key');
                 const paymentSelect = document.getElementById('payment_method');
 
-                if (durationSelect) {
-                    durationSelect.addEventListener('change', function() {
-                        console.log('Membership duration changed to:', this.value);
+                if (packageSelect) {
+                    packageSelect.addEventListener('change', function() {
+                        console.log('Membership package changed to:', this.value);
                         updateSubmitButton();
                     });
                 }

@@ -1,28 +1,23 @@
-<!-- Mobile Navbar -->
+<!-- Mobile Navbar markup (unchanged except JS) -->
 <nav class="block sm:hidden bg-card border-b border-border px-4 py-3 shadow-sm fixed top-0 left-0 right-0 z-[1000]">
     <div class="flex items-center justify-between">
-        <!-- Mobile Menu Button -->
         <button id="mobile-menu-toggle"
             class="p-3 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors touch-manipulation">
             <x-ui.icon name="menu" class="w-6 h-6" />
         </button>
 
-        <!-- Right Actions -->
         <div class="flex items-center space-x-1">
-            <!-- Notification Button -->
             <div class="relative">
                 <button id="mobile-notification-btn"
                     class="p-3 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors relative touch-manipulation"
-                    title="Notifikasi">
+                    title="Notifikasi" onclick="toggleMobileNotificationPopup()">
                     <div id="mobile-bell-icon" class="transition-all duration-300">
                         <x-ui.icon name="bell" class="w-5 h-5 transition-all duration-300" id="mobile-bell-svg" />
                     </div>
-                    <!-- Red notification badge -->
                     <div id="mobile-notification-badge"
                         class="absolute -top-1 -right-1 w-2 h-2 bg-red-500 mt-1 mr-1 rounded-full hidden"></div>
                 </button>
 
-                <!-- Mobile Notification Popup -->
                 <div id="mobile-notification-popup"
                     class="fixed inset-x-4 top-16 bg-card border border-border rounded-lg shadow-lg z-50 hidden">
                     <div class="p-4 border-b border-border">
@@ -35,15 +30,12 @@
                     </div>
                 </div>
             </div>
-
-            <!-- Settings Button -->
-            <button
+            {{-- <button
                 class="p-3 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors touch-manipulation"
                 title="Pengaturan" onclick="handleSettings()">
                 <x-ui.icon name="settings" class="w-5 h-5" />
-            </button>
+            </button> --}}
 
-            <!-- Logout Button -->
             <button onclick="handleLogout()"
                 class="p-3 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors touch-manipulation"
                 title="Keluar">
@@ -53,65 +45,61 @@
     </div>
 </nav>
 
-<!-- Mobile Menu Overlay -->
-<div id="mobile-menu-overlay" class="fixed inset-0 bg-black/50 z-[999] hidden sm:hidden"></div>
-
-<!-- Mobile Menu Slide Panel -->
+<!-- Mobile Menu overlay/panel -->
+<div id="mobile-menu-overlay" class="fixed inset-0 bg-black/40 z-[999] hidden"></div>
 <div id="mobile-menu-panel"
-    class="fixed left-0 top-0 h-full w-80 bg-background-muted z-[1000] transform -translate-x-full transition-transform duration-300 ease-in-out sm:hidden">
-    <div class="h-16 flex items-center justify-between px-4 border-b border-border">
-        <div class="flex items-center space-x-3">
-            <div class="w-8 h-8 rounded-xl flex items-center justify-center shadow-sm overflow-hidden">
-                <img src="{{ Vite::asset('resources/images/rsc_logo.png') }}" alt="RSC Logo"
-                    class="w-full h-full object-cover rounded-xl">
+    class="fixed inset-y-0 left-0 w-72 max-w-[80%] bg-card border-r border-border z-[1000] transform -translate-x-full transition-transform duration-300 ease-in-out overflow-y-auto">
+    <div class="flex items-center justify-between px-4 py-3 border-b border-border">
+        <div class="flex items-center space-x-2">
+            <div class="w-8 h-8 rounded-lg overflow-hidden">
+                <img src="{{ Vite::asset('resources/images/rsc_logo.png') }}" alt="logo" class="w-full h-full object-cover">
             </div>
-            <h2 class="text-lg font-semibold text-foreground">Navigation</h2>
+            <div>
+                <p class="text-sm font-semibold text-card-foreground">Really Sports Center</p>
+                <p class="text-xs text-muted-foreground">Menu</p>
+            </div>
         </div>
-        <button id="mobile-menu-close"
-            class="p-3 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors touch-manipulation">
-            <x-ui.icon name="x" class="w-6 h-6" />
+        <button id="mobile-menu-close" class="p-2 rounded-lg text-muted-foreground hover:bg-muted/50">
+            <x-ui.icon name="x" class="w-4 h-4" />
         </button>
     </div>
 
-    <!-- Navigation Menu -->
-    <div class="flex-1 overflow-y-auto px-4 py-4">
-        <nav class="space-y-2">
-            @php($menuItems = [['id' => 'dashboard', 'label' => 'Dashboard', 'icon' => 'home', 'route' => 'dashboard'], ['id' => 'attendance', 'label' => 'Absensi', 'icon' => 'user-check', 'route' => 'attendance.index'], ['id' => 'members', 'label' => 'Members', 'icon' => 'users', 'route' => 'member.index']])
+    @php
+        $mobileUser = auth()->user();
+        $mobileIsAdmin = $mobileUser && $mobileUser->role && $mobileUser->role->isAdmin();
+        $mobileIsStaff = $mobileUser && $mobileUser->role && $mobileUser->role->isStaff();
+        $mobileMenuItems = [
+            ['label' => 'Dashboard', 'icon' => 'home', 'route' => 'dashboard'],
+            ['label' => 'Absensi', 'icon' => 'user-check', 'route' => 'attendance.index'],
+            ['label' => 'Members', 'icon' => 'users', 'route' => 'member.index'],
+            ['label' => 'Non-Member', 'icon' => 'user-plus', 'route' => 'non-member-visit.index'],
+        ];
+        if ($mobileIsAdmin) {
+            $mobileMenuItems = array_merge($mobileMenuItems, [
+                ['label' => 'Pembayaran', 'icon' => 'credit-card', 'route' => 'admin.payment.index'],
+                ['label' => 'Jadwal Staf', 'icon' => 'calendar', 'route' => 'admin.staff-schedule.index'],
+                ['label' => 'Laporan', 'icon' => 'bar-chart-3', 'route' => 'admin.business-report.index'],
+                ['label' => 'Pengaturan', 'icon' => 'settings', 'route' => 'admin.settings.index'],
+            ]);
+        }
+        if ($mobileIsStaff) {
+            $mobileMenuItems[] = ['label' => 'Jadwal Saya', 'icon' => 'calendar-clock', 'route' => 'staff.shift.schedule'];
+        }
+    @endphp
 
-            @foreach ($menuItems as $item)
-                @php($isActive = request()->routeIs($item['route']) || (request()->routeIs('dashboard') && $item['id'] === 'dashboard'))
-                <a href="{{ $item['route'] === '#' ? '#' : route($item['route']) }}"
-                    class="flex items-center space-x-4 px-4 py-4 rounded-lg transition-colors touch-manipulation {{ $isActive ? 'bg-primary text-primary-foreground' : 'text-foreground hover:bg-accent hover:text-accent-foreground' }}"
-                    onclick="closeMobileMenu()">
-                    <x-ui.icon name="{{ $item['icon'] }}" class="w-6 h-6" />
-                    <span class="font-medium text-base">{{ $item['label'] }}</span>
-                </a>
-            @endforeach
-        </nav>
+    <div class="p-4 space-y-2">
+        @foreach ($mobileMenuItems as $item)
+            <a href="{{ route($item['route']) }}"
+                class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-muted/50 text-card-foreground transition-colors">
+                <x-ui.icon name="{{ $item['icon'] }}" class="w-4 h-4" />
+                <span class="text-sm font-medium">{{ $item['label'] }}</span>
+            </a>
+        @endforeach
     </div>
-
-    <!-- User Profile Section -->
-    @if (isset($user))
-        <div class="border-t border-border p-4">
-            <div class="flex items-center space-x-3 p-3 rounded-lg bg-muted/50">
-                <div class="w-10 h-10 bg-primary/20 rounded-full flex items-center justify-center">
-                    <x-ui.icon name="user" class="w-5 h-5 text-primary" />
-                </div>
-                <div class="flex-1 min-w-0">
-                    <p class="text-sm font-medium text-foreground truncate">{{ $user['name'] ?? '' }}</p>
-                    @if (isset($user['role']) && $user['role']->isAdmin())
-                        <p class="text-xs text-muted-foreground">Admin</p>
-                    @elseif (isset($user['role']) && $user['role']->isStaff())
-                        <p class="text-xs text-muted-foreground">Staff</p>
-                    @endif
-                </div>
-            </div>
-        </div>
-    @endif
 </div>
 
 <script>
-    // Mobile menu functionality
+    // Mobile menu functionality unchanged
     document.addEventListener('DOMContentLoaded', function() {
         const mobileMenuToggle = document.getElementById('mobile-menu-toggle');
         const mobileMenuPanel = document.getElementById('mobile-menu-panel');
@@ -121,264 +109,80 @@
         const mobileNotificationPopup = document.getElementById('mobile-notification-popup');
 
         function openMobileMenu() {
-            mobileMenuPanel.classList.remove('-translate-x-full');
-            mobileMenuOverlay.classList.remove('hidden');
+            if (mobileMenuPanel) mobileMenuPanel.classList.remove('-translate-x-full');
+            if (mobileMenuOverlay) mobileMenuOverlay.classList.remove('hidden');
             document.body.classList.add('overflow-hidden');
         }
 
         function closeMobileMenu() {
-            mobileMenuPanel.classList.add('-translate-x-full');
-            mobileMenuOverlay.classList.add('hidden');
+            if (mobileMenuPanel) mobileMenuPanel.classList.add('-translate-x-full');
+            if (mobileMenuOverlay) mobileMenuOverlay.classList.add('hidden');
             document.body.classList.remove('overflow-hidden');
         }
 
-        // Toggle mobile menu
         if (mobileMenuToggle) {
             mobileMenuToggle.addEventListener('click', openMobileMenu);
         }
-
-        // Close mobile menu
         if (mobileMenuClose) {
             mobileMenuClose.addEventListener('click', closeMobileMenu);
         }
-
-        // Close mobile menu when clicking overlay
         if (mobileMenuOverlay) {
             mobileMenuOverlay.addEventListener('click', closeMobileMenu);
         }
 
-        // Close mobile menu on escape key
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
                 closeMobileMenu();
             }
         });
 
-        // Add swipe gesture support for closing menu
+        // Touch swipe logic remains unchanged
         let startX = 0;
         let startY = 0;
-
-        mobileMenuPanel.addEventListener('touchstart', function(e) {
-            startX = e.touches[0].clientX;
-            startY = e.touches[0].clientY;
-        });
-
-        mobileMenuPanel.addEventListener('touchmove', function(e) {
-            if (!startX || !startY) return;
-
-            const currentX = e.touches[0].clientX;
-            const currentY = e.touches[0].clientY;
-            const diffX = startX - currentX;
-            const diffY = startY - currentY;
-
-            // Check if it's a horizontal swipe (not vertical scroll)
-            if (Math.abs(diffX) > Math.abs(diffY) && diffX > 50) {
-                // Swipe left detected - close menu
-                closeMobileMenu();
-                startX = 0;
-                startY = 0;
-            }
-        });
-
-        mobileMenuPanel.addEventListener('touchend', function() {
-            startX = 0;
-            startY = 0;
-        });
-
-        // Mobile notification functionality
-        function toggleMobileNotificationPopup() {
-            const isHidden = mobileNotificationPopup.classList.contains('hidden');
-
-            if (isHidden) {
-                loadMobileNotifications();
-                mobileNotificationPopup.classList.remove('hidden');
-                markNotificationsAsRead();
-            } else {
-                mobileNotificationPopup.classList.add('hidden');
-            }
-        }
-
-        if (mobileNotificationBtn) {
-            mobileNotificationBtn.addEventListener('click', toggleMobileNotificationPopup);
-        }
-
-        // Close mobile notification popup when clicking outside
-        document.addEventListener('click', function(event) {
-            if (!mobileNotificationPopup.classList.contains('hidden') &&
-                !mobileNotificationPopup.contains(event.target) &&
-                !mobileNotificationBtn.contains(event.target)) {
-                mobileNotificationPopup.classList.add('hidden');
-            }
-        });
-
-        function handleSettings() {
-
-            // Show settings modal or redirect to settings page
-            showAlert(
-                'Fitur pengaturan akan segera tersedia!',
-                'Informasi',
-                'info'
-            );
-            // You can replace this with actual settings functionality later
-        }
-
-        function loadMobileNotifications() {
-            console.log('Loading mobile notifications...');
-            fetch('{{ route('notifications.scheduled-commands') }}')
-                .then(response => response.json())
-                .then(data => {
-                    console.log('Mobile notification data:', data);
-                    const content = document.getElementById('mobile-notification-content');
-
-                    if (data.notifications.length === 0) {
-                        content.innerHTML = `
-                            <div class="p-4 text-center text-muted-foreground">
-                                <span class="icon-bell w-8 h-8 mx-auto mb-2 opacity-50 block"></span>
-                                <p>Tidak ada notifikasi</p>
-                            </div>
-                        `;
-                    } else {
-                        let html = '';
-                        data.notifications.forEach(notification => {
-                            const statusColor = notification.status === 'success' ?
-                                'text-green-600' : 'text-red-600';
-                            const statusIcon = notification.status === 'success' ? 'check-circle' :
-                                'x-circle';
-                            const iconClass = statusIcon === 'check-circle' ? 'icon-check' :
-                                'icon-x';
-
-                            let notificationContent = '';
-                            if (notification.command === 'Auto Check-out Process' && notification
-                                .member_name && notification.checkout_time) {
-                                notificationContent = `
-                                    <p class="text-sm font-medium text-card-foreground">${notification.command}</p>
-                                    <p class="text-xs ${statusColor} capitalize">${notification.status}</p>
-                                    <p class="text-xs text-muted-foreground mt-1">${notification.member_name} berhasil di check-out otomatis ${notification.checkout_time}</p>
-                                    <p class="text-xs text-muted-foreground mt-1">${notification.date} ${notification.time}</p>
-                                `;
-                            } else if (notification.command === 'Membership Expiration Check' &&
-                                notification.member_name && !notification.checkout_time) {
-                                notificationContent = `
-                                    <p class="text-sm font-medium text-card-foreground">${notification.command}</p>
-                                    <p class="text-xs ${statusColor} capitalize">${notification.status}</p>
-                                    <p class="text-xs text-muted-foreground mt-1">${notification.member_name} keanggotaan menjadi inactive dikarenakan expired</p>
-                                    <p class="text-xs text-muted-foreground mt-1">${notification.date} ${notification.time}</p>
-                                `;
-                            } else {
-                                notificationContent = `
-                                    <p class="text-sm font-medium text-card-foreground">${notification.command}</p>
-                                    <p class="text-xs ${statusColor} capitalize">${notification.status}</p>
-                                    ${notification.message ? `<p class="text-xs text-muted-foreground mt-1">${notification.message}</p>` : ''}
-                                    <p class="text-xs text-muted-foreground mt-1">${notification.date} ${notification.time}</p>
-                                `;
-                            }
-
-                            html += `
-                                <div class="p-3 border-b border-border last:border-b-0 hover:bg-muted/50">
-                                    <div class="flex items-start space-x-3">
-                                        <div class="flex-shrink-0 mt-0.5">
-                                            <span class="${iconClass} w-4 h-4 ${statusColor}"></span>
-                                        </div>
-                                        <div class="flex-1 min-w-0">
-                                            ${notificationContent}
-                                        </div>
-                                    </div>
-                                </div>
-                            `;
-                        });
-                        content.innerHTML = html;
-                    }
-
-                    // Update mobile bell icon based on notification status
-                    console.log('Updating mobile bell icon with has_new:', data.has_new);
-                    updateMobileBellIcon(data.has_new);
-                })
-                .catch(error => {
-                    console.error('Error loading notifications:', error);
-                    document.getElementById('mobile-notification-content').innerHTML = `
-                        <div class="p-4 text-center text-red-600">
-                            <p>Gagal memuat notifikasi</p>
-                        </div>
-                    `;
-                });
-        }
-
-        function updateMobileBellIcon(hasNew) {
-            console.log('updateMobileBellIcon called with hasNew:', hasNew);
-            const bellIcon = document.getElementById('mobile-bell-icon');
-            const bellSvg = bellIcon ? bellIcon.querySelector('svg') : null;
-            const notificationBadge = document.getElementById('mobile-notification-badge');
-
-            console.log('Elements found:', {
-                bellIcon,
-                bellSvg,
-                notificationBadge
+        if (mobileMenuPanel) {
+            mobileMenuPanel.addEventListener('touchstart', function(e) {
+                startX = e.touches[0].clientX;
+                startY = e.touches[0].clientY;
             });
 
-            if (!bellIcon) return;
+            mobileMenuPanel.addEventListener('touchmove', function(e) {
+                if (!startX || !startY) return;
+                const currentX = e.touches[0].clientX;
+                const currentY = e.touches[0].clientY;
+                const diffX = startX - currentX;
+                const diffY = startY - currentY;
+                if (Math.abs(diffX) > Math.abs(diffY) && diffX > 50) {
+                    closeMobileMenu();
+                    startX = 0;
+                    startY = 0;
+                }
+            });
 
-            if (hasNew) {
-                console.log('Showing notification badge and updating icon');
-                bellIcon.classList.add('text-orange-500', 'animate-pulse');
-                bellIcon.classList.remove('text-muted-foreground');
-                if (bellSvg) {
-                    bellSvg.classList.add('text-orange-500');
-                    bellSvg.classList.remove('text-muted-foreground');
-                }
+            mobileMenuPanel.addEventListener('touchend', function() {
+                startX = 0;
+                startY = 0;
+            });
+        }
 
-                // Show red notification badge
-                if (notificationBadge) {
-                    console.log('Showing red notification badge');
-                    notificationBadge.classList.remove('hidden');
-                } else {
-                    console.log('Notification badge element not found!');
+        // Mobile notification button uses global functions defined in navbar script.
+        if (mobileNotificationBtn) {
+            // keep click handler in markup as onclick="toggleMobileNotificationPopup()"
+            // Add an extra defensive click binding in case onclick was removed or fails.
+            mobileNotificationBtn.addEventListener('click', function() {
+                if (typeof window.toggleMobileNotificationPopup === 'function') {
+                    window.toggleMobileNotificationPopup();
                 }
-            } else {
-                bellIcon.classList.remove('text-orange-500', 'animate-pulse');
-                bellIcon.classList.add('text-muted-foreground');
-                if (bellSvg) {
-                    bellSvg.classList.remove('text-orange-500');
-                    bellSvg.classList.add('text-muted-foreground');
-                }
+            });
+        }
 
-                // Hide red notification badge
-                if (notificationBadge) {
-                    notificationBadge.classList.add('hidden');
-                }
+        // Close mobile notification popup when clicking outside - keep local defensive check
+        document.addEventListener('click', function(event) {
+            if (mobileNotificationPopup && !mobileNotificationPopup.classList.contains('hidden') &&
+                !mobileNotificationPopup.contains(event.target) &&
+                mobileNotificationBtn && !mobileNotificationBtn.contains(event.target)) {
+                mobileNotificationPopup.classList.add('hidden');
             }
-        }
-
-        function markNotificationsAsRead() {
-            fetch('{{ route('notifications.mark-read') }}', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                    }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    updateMobileBellIcon(false);
-                })
-                .catch(error => {
-                    console.error('Error marking notifications as read:', error);
-                });
-        }
-
-        // Load notifications on page load
-        loadMobileNotifications();
-
-        // Poll for notifications every 2 minutes
-        setInterval(() => {
-            fetch('{{ route('notifications.scheduled-commands') }}')
-                .then(response => response.json())
-                .then(data => {
-                    updateMobileBellIcon(data.has_new);
-                })
-                .catch(error => {
-                    console.error('Error polling notifications:', error);
-                });
-        }, 120000);
+        });
     });
 
     function handleLogout() {

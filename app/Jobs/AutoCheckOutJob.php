@@ -4,14 +4,13 @@ declare(strict_types=1);
 
 namespace App\Jobs;
 
-use App\Http\Controllers\NotificationController;
 use App\Models\Attendance;
+use App\Models\CommandNotification;
 use Carbon\Carbon;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class AutoCheckOutJob implements ShouldQueue
@@ -90,36 +89,14 @@ class AutoCheckOutJob implements ShouldQueue
                 // Don't throw exception here as the main checkout is successful
             }
 
-            // Store notification data
-            $checkoutData = [
-                'name' => $attendance->member->name,
-                'checkout_time' => $checkoutTime->format('H:i'),
-            ];
-
-            // Add to notification cache
-            $notifications = Cache::get('scheduled_command_notifications', []);
-
-            $newNotification = [
+            CommandNotification::query()->create([
                 'command' => 'Auto Check-out Process',
                 'status' => 'success',
                 'message' => null,
-                'member_name' => $checkoutData['name'],
-                'checkout_time' => $checkoutData['checkout_time'],
-                'timestamp' => now()->timestamp,
-                'time' => now()->format('H:i:s'),
-                'date' => now()->format('d M Y'),
-                'read' => false,
-            ];
-
-            // Add new notification to the beginning of array
-            array_unshift($notifications, $newNotification);
-
-            // Keep only last 10 notifications
-            if (count($notifications) > 10) {
-                $notifications = array_slice($notifications, 0, 10);
-            }
-
-            Cache::put('scheduled_command_notifications', $notifications, now()->addDays(7));
+                'member_name' => $attendance->member->name,
+                'checkout_at' => $checkoutTime,
+                'is_read' => false,
+            ]);
 
             Log::info("AutoCheckOutJob: Successfully checked out member {$attendance->member->name} at {$checkoutTime}");
 
@@ -136,15 +113,18 @@ class AutoCheckOutJob implements ShouldQueue
     {
         Log::error("AutoCheckOutJob: Job failed after {$this->tries} attempts for attendance {$this->attendanceId}. Error: {$exception->getMessage()}");
 
-        // Store failure notification
         try {
             $attendance = Attendance::with('member')->find($this->attendanceId);
+
             if ($attendance && $attendance->member) {
-                NotificationController::addCommandNotification(
-                    'Auto Check-out Process',
-                    'failed',
-                    "Gagal auto checkout untuk {$attendance->member->name}: {$exception->getMessage()}"
-                );
+                CommandNotification::query()->create([
+                    'command' => 'Auto Check-out Process',
+                    'status' => 'failed',
+                    'message' => "Gagal auto checkout untuk {$attendance->member->name}: {$exception->getMessage()}",
+                    'member_name' => $attendance->member->name,
+                    'checkout_at' => null,
+                    'is_read' => false,
+                ]);
             }
         } catch (\Exception $e) {
             Log::error("AutoCheckOutJob: Failed to create failure notification: {$e->getMessage()}");

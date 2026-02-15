@@ -4,18 +4,19 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Enums\MemberStatus;
 use App\Models\Member;
 use Carbon\Carbon;
 use Illuminate\Pagination\LengthAwarePaginator;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Closure;
+use Illuminate\Support\Str;
 
 class MemberService
 {
     public function __construct(
         private PaymentService $paymentService,
-        private MembershipService $membershipService,
-        private DashboardService $dashboardService
+        private MembershipService $membershipService
     ) {}
 
     public function getAllMembers(array $filters = []): LengthAwarePaginator
@@ -35,19 +36,16 @@ class MemberService
         }
 
         if (! empty($filters['status'])) {
-            if ($filters['status'] === 'INACTIVE') {
-                // INACTIVE includes both manually suspended AND expired members
-                $query->where(function ($q) {
-                    $q->where('status', 'INACTIVE')
-                        ->orWhere(function ($sq) {
-                            $sq->where('status', 'ACTIVE')
-                                ->whereDate('exp_date', '<', Carbon::today());
-                        });
-                });
-            } else {
+            if ($filters['status'] === 'ACTIVE') {
                 // ACTIVE means active and not expired
-                $query->where('status', $filters['status'])
+                $query->where('status', 'ACTIVE')
                     ->whereDate('exp_date', '>=', Carbon::today());
+            } elseif ($filters['status'] === 'EXPIRED') {
+                // EXPIRED means recently expired (less than 3 months)
+                $query->where('status', 'EXPIRED');
+            } elseif ($filters['status'] === 'INACTIVE') {
+                // INACTIVE means expired more than 3 months ago
+                $query->where('status', 'INACTIVE');
             }
         }
 
@@ -65,34 +63,32 @@ class MemberService
         return DB::transaction(function () use ($data) {
             // Generate member code dan set default status
             $data['member_code'] = $this->generateMemberId();
-            $data['status'] = $data['status'] ?? \App\Enums\MemberStatus::ACTIVE;
+            $data['status'] = $data['status'] ?? MemberStatus::ACTIVE;
 
             // Extract membership dan payment data
-            $membershipDuration = (int) $data['membership_duration'];
+            $packageKey = (string) $data['package_key'];
             $paymentMethod = $data['payment_method'];
             $paymentNotes = $data['payment_notes'] ?? null;
 
-            // Calculate exp_date automatically based on membership duration
-            $data['exp_date'] = Carbon::now()->addMonths($membershipDuration)->toDateString();
+            // Hitung exp_date berdasarkan paket membership (duration_days)
+            $pricing = $this->membershipService->calculatePackagePricing($packageKey);
+            $durationDays = $pricing['duration_days'];
+            $startDate = Carbon::now()->startOfDay();
+            $endDate = $startDate->copy()->addDays($durationDays - 1)->toDateString();
+            $data['exp_date'] = $endDate;
 
             // Remove non-member fields dari data
-            unset($data['membership_duration'], $data['payment_method'], $data['payment_notes']);
+            unset($data['package_key'], $data['payment_method'], $data['payment_notes']);
 
             // Create member
             $member = Member::create($data);
 
             // Create membership using MembershipService
-            $this->membershipService->createMembership($member, $membershipDuration);
+            $this->membershipService->createMembership($member, $packageKey);
 
             // Create payments: Registration fee + Membership fee
             $this->createRegistrationPayment($member, $paymentMethod, $paymentNotes);
-            $this->createMembershipPayment($member, $membershipDuration, $paymentMethod, $paymentNotes);
-
-            // Invalidate member caches
-            CacheService::invalidateMemberCaches();
-
-            // Invalidate dashboard cache
-            $this->dashboardService->invalidateDashboardCache();
+            $this->createMembershipPayment($member, $packageKey, $paymentMethod, $paymentNotes);
 
             return $member->fresh(['membership', 'payments']);
         });
@@ -111,12 +107,6 @@ class MemberService
             // Always check and update status based on exp_date after any update
             $this->autoUpdateMemberStatus($member);
 
-            // Invalidate member caches
-            CacheService::invalidateMemberCaches();
-
-            // Invalidate dashboard cache if status might have changed
-            $this->dashboardService->invalidateDashboardCache();
-
             return $member->fresh(['membership', 'payments']);
         });
     }
@@ -133,9 +123,6 @@ class MemberService
         $member = Member::findOrFail($id);
         $member->update(['status' => \App\Enums\MemberStatus::INACTIVE]);
 
-        // Invalidate member caches
-        CacheService::invalidateMemberCaches();
-
         return $member->fresh();
     }
 
@@ -144,42 +131,27 @@ class MemberService
         $member = Member::findOrFail($id);
         $member->update(['status' => \App\Enums\MemberStatus::ACTIVE]);
 
-        // Invalidate member caches
-        CacheService::invalidateMemberCaches();
-
         return $member->fresh();
     }
 
-    public function extendMembership(int $memberId, int $duration, string $paymentMethod, ?string $paymentNotes = null): Member
+    public function extendMembership(int $memberId, string $packageKey, string $paymentMethod, ?string $paymentNotes = null): Member
     {
-        return DB::transaction(function () use ($memberId, $duration, $paymentMethod, $paymentNotes) {
+        return DB::transaction(function () use ($memberId, $packageKey, $paymentMethod, $paymentNotes) {
             $member = Member::findOrFail($memberId);
 
-            // Extend from current exp_date, or from now if exp_date is in the past
-            $currentExpDate = Carbon::parse($member->exp_date);
-            $today = Carbon::today();
+            // Create new membership record for extension
+            $membership = $this->membershipService->createMembershipExtension($member, $packageKey);
 
-            $baseDate = $currentExpDate->isFuture() ? $currentExpDate : $today;
-            $newExpDate = $baseDate->addMonths($duration)->toDateString();
-
-            // Update exp_date
-            $member->update(['exp_date' => $newExpDate]);
+            // Update exp_date mengikuti end_date membership terbaru
+            $member->update(['exp_date' => $membership->end_date]);
 
             // Auto-update status based on new exp_date
             $this->autoUpdateMemberStatus($member);
 
-            // Create new membership record for extension
-            $this->membershipService->createMembershipExtension($member, $duration);
-
             // Create new payment using PaymentService
-            $amount = $this->membershipService->getMembershipPrice($duration);
+            $pricing = $this->membershipService->calculatePackagePricing($packageKey);
+            $amount = $pricing['final_price'];
             $this->paymentService->createPayment($member, $amount, $paymentMethod, $paymentNotes);
-
-            // Invalidate member caches
-            CacheService::invalidateMemberCaches();
-
-            // Invalidate dashboard cache
-            $this->dashboardService->invalidateDashboardCache();
 
             return $member->fresh(['membership', 'payments']);
         });
@@ -187,39 +159,45 @@ class MemberService
 
     public function searchMembers(string $query): array
     {
-        // Reduce cache TTL for search results to avoid stale data
-        $cacheKey = CacheService::getMemberSearchKey($query, 20);
+        $today = Carbon::today()->format('Y-m-d');
 
-        return Cache::remember($cacheKey, CacheService::CACHE_TTL_SHORT, function () use ($query) {
-            $members = Member::select('id', 'member_code', 'name', 'exp_date', 'status')
-                ->where(function ($q) use ($query) {
-                    $q->where('member_code', 'like', "%{$query}%")
-                        ->orWhere('name', 'like', "%{$query}%");
-                })
-                ->orderByRaw("CASE WHEN member_code LIKE '%{$query}%' THEN 1 ELSE 2 END")
-                ->orderBy('member_code')
-                ->limit(20)
-                ->get()
-                ->toArray();
+        $sql = <<<'SQL'
+SELECT
+    m.id,
+    m.member_code,
+    m.name,
+    m.exp_date,
+    m.status,
+    EXISTS (
+        SELECT 1
+        FROM attendances a
+        WHERE a.member_id = m.id
+          AND DATE(a.check_in_time) = ?
+          AND a.check_out_time IS NULL
+    ) AS has_checked_in_today
+FROM members m
+WHERE m.member_code LIKE ?
+   OR m.name LIKE ?
+ORDER BY
+    CASE WHEN m.member_code LIKE ? THEN 0 ELSE 1 END,
+    m.member_code ASC
+LIMIT 20
+SQL;
 
-            // Add formatted exp_date to each member
-            return array_map(function ($member) {
-                $member['exp_date_formatted'] = \Carbon\Carbon::parse($member['exp_date'])->format('d M Y');
+        $likeQuery = '%' . $query . '%';
+        $rows = DB::select($sql, [$today, $likeQuery, $likeQuery, $likeQuery]);
 
-                return $member;
-            }, $members);
-        });
-    }
+        return array_map(
+            static function ($row) {
+                $data = (array) $row;
+                $data['exp_date_formatted'] = Carbon::parse($data['exp_date'])->format('d M Y');
+                $data['has_checked_in_today'] = (bool) $data['has_checked_in_today'];
+                $data['can_checkin'] = $data['status'] === MemberStatus::ACTIVE->value && ! $data['has_checked_in_today'];
 
-    public function clearSearchCache(?string $query = null): void
-    {
-        if ($query) {
-            $cacheKey = CacheService::getMemberSearchKey($query, 20);
-            Cache::forget($cacheKey);
-        } else {
-            // Clear all member search caches
-            Cache::flush(); // This is more aggressive, use with caution
-        }
+                return $data;
+            },
+            $rows
+        );
     }
 
     public function getMemberStats(Member $member): array
@@ -243,14 +221,19 @@ class MemberService
         $expDate = Carbon::parse($member->exp_date);
         $currentStatus = $member->status;
 
-        // Determine what the status should be based on exp_date
+        // Determine what the status should be based on exp_date and activity
         $shouldBeActive = $expDate->isFuture() || $expDate->isToday();
+        $shouldBeExpired = ! $shouldBeActive && $expDate->diffInMonths($today) < 3;
+        $shouldBeInactive = ! $shouldBeActive && $expDate->diffInMonths($today) >= 3;
 
-        if ($shouldBeActive && $currentStatus === \App\Enums\MemberStatus::INACTIVE) {
-            // Member should be active but is currently inactive - activate
+        if ($shouldBeActive && $currentStatus !== \App\Enums\MemberStatus::ACTIVE) {
+            // Member should be active - activate
             $member->update(['status' => \App\Enums\MemberStatus::ACTIVE]);
-        } elseif (! $shouldBeActive && $currentStatus === \App\Enums\MemberStatus::ACTIVE) {
-            // Member should be inactive but is currently active - deactivate
+        } elseif ($shouldBeExpired && $currentStatus !== \App\Enums\MemberStatus::EXPIRED) {
+            // Member should be expired - set to expired
+            $member->update(['status' => \App\Enums\MemberStatus::EXPIRED]);
+        } elseif ($shouldBeInactive && $currentStatus !== \App\Enums\MemberStatus::INACTIVE) {
+            // Member should be inactive - set to inactive
             $member->update(['status' => \App\Enums\MemberStatus::INACTIVE]);
         }
 
@@ -265,53 +248,60 @@ class MemberService
     public function bulkUpdateMemberStatuses(): array
     {
         $today = Carbon::today();
-
-        // Get all members that need status update
-        $expiredActiveMembers = Member::where('status', \App\Enums\MemberStatus::ACTIVE)
-            ->where('exp_date', '<', $today)
-            ->get();
-
-        $activeInactiveMembers = Member::where('status', \App\Enums\MemberStatus::INACTIVE)
-            ->where('exp_date', '>=', $today)
-            ->get();
+        $threeMonthsAgo = $today->copy()->subMonths(3);
 
         $updatedCount = 0;
         $results = [];
 
-        // Update expired active members to inactive
-        foreach ($expiredActiveMembers as $member) {
-            $member->update(['status' => \App\Enums\MemberStatus::INACTIVE]);
-            $updatedCount++;
-            $results[] = [
-                'member_id' => $member->id,
-                'member_name' => $member->name,
-                'action' => 'deactivated',
-                'reason' => 'expired',
-            ];
-        }
+        // Get all members that need status update
+        $allMembers = Member::all();
 
-        // Update active inactive members to active
-        foreach ($activeInactiveMembers as $member) {
-            $member->update(['status' => \App\Enums\MemberStatus::ACTIVE]);
-            $updatedCount++;
-            $results[] = [
-                'member_id' => $member->id,
-                'member_name' => $member->name,
-                'action' => 'activated',
-                'reason' => 'not_expired',
-            ];
-        }
+        foreach ($allMembers as $member) {
+            $expDate = Carbon::parse($member->exp_date);
+            $currentStatus = $member->status;
+            $newStatus = null;
 
-        // Invalidate caches
-        CacheService::invalidateMemberCaches();
-        $this->dashboardService->invalidateDashboardCache();
+            // Determine new status based on expiration date
+            if ($expDate->isFuture() || $expDate->isToday()) {
+                $newStatus = \App\Enums\MemberStatus::ACTIVE;
+            } elseif ($expDate->diffInMonths($today) < 3) {
+                $newStatus = \App\Enums\MemberStatus::EXPIRED;
+            } else {
+                $newStatus = \App\Enums\MemberStatus::INACTIVE;
+            }
+
+            // Update status if different
+            if ($currentStatus !== $newStatus) {
+                $member->update(['status' => $newStatus]);
+                $updatedCount++;
+
+                $results[] = [
+                    'member_id' => $member->id,
+                    'member_name' => $member->name,
+                    'old_status' => $currentStatus->value,
+                    'new_status' => $newStatus->value,
+                    'reason' => $this->getStatusChangeReason($currentStatus, $newStatus, $expDate, $today),
+                ];
+            }
+        }
 
         return [
             'total_updated' => $updatedCount,
-            'expired_to_inactive' => $expiredActiveMembers->count(),
-            'inactive_to_active' => $activeInactiveMembers->count(),
             'details' => $results,
         ];
+    }
+
+    private function getStatusChangeReason($oldStatus, $newStatus, $expDate, $today): string
+    {
+        if ($newStatus === \App\Enums\MemberStatus::ACTIVE) {
+            return 'Membership renewed or extended';
+        } elseif ($newStatus === \App\Enums\MemberStatus::EXPIRED) {
+            return 'Membership expired recently';
+        } elseif ($newStatus === \App\Enums\MemberStatus::INACTIVE) {
+            return 'Membership expired more than 3 months ago';
+        }
+
+        return 'Status updated';
     }
 
     public function getMemberExpirationStatus(Member $member): array
@@ -331,7 +321,14 @@ class MemberService
 
     private function createRegistrationPayment(Member $member, string $paymentMethod, ?string $paymentNotes = null): void
     {
-        $registrationFee = 50000; // Biaya pendaftaran member baru
+        $fees = \App\Models\Membership::getFees();
+        $registrationFee = $fees['new_member_fee'] ?? 0;
+
+        // ** //
+        if ($registrationFee <= 0) {
+            return;
+        }
+
         $this->paymentService->createPayment(
             $member,
             $registrationFee,
@@ -340,38 +337,38 @@ class MemberService
         );
     }
 
-    private function createMembershipPayment(Member $member, int $membershipDuration, string $paymentMethod, ?string $paymentNotes = null): void
+    private function createMembershipPayment(Member $member, string $packageKey, string $paymentMethod, ?string $paymentNotes = null): void
     {
-        $membershipAmount = $this->membershipService->getMembershipPrice($membershipDuration);
+        $pricing = $this->membershipService->calculatePackagePricing($packageKey);
+        $membershipAmount = $pricing['final_price'];
+        $label = $pricing['label'];
+
         $this->paymentService->createPayment(
             $member,
             $membershipAmount,
             $paymentMethod,
-            $paymentNotes ? "Membership {$membershipDuration} bulan: {$paymentNotes}" : "Biaya membership {$membershipDuration} bulan"
+            $paymentNotes ? "Membership {$label}: {$paymentNotes}" : "Biaya membership {$label}"
         );
     }
 
     public function getRegistrationFee(): int
     {
-        return 50000; // Biaya pendaftaran member baru
+        $fees = \App\Models\Membership::getFees();
+
+        return $fees['new_member_fee'] ?? 0;
     }
 
-    public function getTotalRegistrationCost(int $membershipDuration): int
+    public function getTotalRegistrationCost(string $packageKey): int
     {
         $registrationFee = $this->getRegistrationFee();
-        $membershipCost = $this->membershipService->getMembershipPrice($membershipDuration);
+        $pricing = $this->membershipService->calculatePackagePricing($packageKey);
 
-        return $registrationFee + $membershipCost;
+        return $registrationFee + $pricing['final_price'];
     }
 
-    public function getAvailableMembershipDurations(): array
+    public function getAvailableMembershipPackages(): array
     {
-        return $this->membershipService->getEnabledDurations();
-    }
-
-    public function validateMembershipDuration(int $duration): bool
-    {
-        return $this->membershipService->isDurationValid($duration);
+        return $this->membershipService->getAllPackageOptions();
     }
 
     private function generateMemberId(): string
@@ -386,6 +383,86 @@ class MemberService
             $newId = 1;
         }
 
-        return $prefix.$newId;
+        return $prefix . $newId;
+    }
+    
+    public function exportMembersCallback(array $filters = []): Closure
+    {
+        return function () use ($filters) {
+            $handle = fopen('php://output', 'w');
+
+            // Header CSV
+            fputcsv($handle, [
+                'ID',
+                'Member Code',
+                'Name',
+                'Email',
+                'Phone',
+                'Status',
+                'Exp Date',
+                'Last Check In',
+                'Total Visits',
+                'Created At',
+                'Membership Name',
+            ]);
+
+            $query = Member::select(
+                'id',
+                'member_code',
+                'name',
+                'email',
+                'phone',
+                'status',
+                'exp_date',
+                'last_check_in',
+                'total_visits',
+                'created_at'
+            )->with('membership')->orderBy('id');
+
+            // Apply same filters seperti di getAllMembers
+            if (! empty($filters['search'])) {
+                $search = $filters['search'];
+                $query->where(function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%")
+                        ->orWhere('phone', 'like', "%{$search}%")
+                        ->orWhere('member_code', 'like', "%{$search}%");
+                });
+            }
+
+            if (! empty($filters['status'])) {
+                if ($filters['status'] === 'ACTIVE') {
+                    $query->where('status', 'ACTIVE')
+                        ->whereDate('exp_date', '>=', Carbon::today());
+                } elseif ($filters['status'] === 'EXPIRED') {
+                    $query->where('status', 'EXPIRED');
+                } elseif ($filters['status'] === 'INACTIVE') {
+                    $query->where('status', 'INACTIVE');
+                }
+            }
+
+            // Stream rows in chunks to avoid OOM
+            $query->chunkById(200, function ($members) use ($handle) {
+                foreach ($members as $m) {
+                    fputcsv($handle, [
+                        $m->id,
+                        $m->member_code,
+                        $m->name,
+                        $m->email,
+                        $m->phone,
+                        // jika status berupa enum cast, ambil value; jika string, tetap string
+                        (is_object($m->status) && property_exists($m->status, 'value')) ? $m->status->value : (string) $m->status,
+                        $m->exp_date,
+                        // last_check_in bisa null
+                        $m->last_check_in ? $m->last_check_in->format('Y-m-d H:i:s') : '',
+                        $m->total_visits ?? 0,
+                        $m->created_at ? $m->created_at->format('Y-m-d H:i:s') : '',
+                        optional($m->membership)->name ?? '',
+                    ]);
+                }
+            });
+
+            fclose($handle);
+        };
     }
 }

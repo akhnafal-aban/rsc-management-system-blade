@@ -10,6 +10,8 @@ use App\Http\Requests\StoreMemberRequest;
 use App\Http\Requests\UpdateMemberRequest;
 use App\Models\Member;
 use App\Services\MemberService;
+use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class MemberController extends Controller
 {
@@ -25,7 +27,9 @@ class MemberController extends Controller
 
     public function create()
     {
-        return view('pages.main.member.create');
+        $packages = $this->memberService->getAvailableMembershipPackages();
+
+        return view('pages.main.member.create', compact('packages'));
     }
 
     public function store(StoreMemberRequest $request)
@@ -68,7 +72,7 @@ class MemberController extends Controller
             $expirationStatus = $this->memberService->getMemberExpirationStatus($updatedMember);
 
             if ($expirationStatus['is_expired']) {
-                $message .= ' Status member otomatis diubah menjadi tidak aktif karena telah expired.';
+                $message .= ' Status member otomatis diubah menjadi expired karena telah expired.';
             } elseif ($expirationStatus['is_expiring_soon']) {
                 $message .= ' Peringatan: Member akan expired dalam '.$expirationStatus['days_until_expiry'].' hari.';
             } else {
@@ -106,7 +110,9 @@ class MemberController extends Controller
 
     public function extend()
     {
-        return view('pages.main.member.extend');
+        $packages = $this->memberService->getAvailableMembershipPackages();
+
+        return view('pages.main.member.extend', compact('packages'));
     }
 
     public function searchMembers()
@@ -132,7 +138,7 @@ class MemberController extends Controller
 
         $updatedMember = $this->memberService->extendMembership(
             (int) $validated['member_id'],
-            (int) $validated['membership_duration'],
+            (string) $validated['package_key'],
             $validated['payment_method'],
             $validated['payment_notes'] ?? null
         );
@@ -140,7 +146,7 @@ class MemberController extends Controller
         // Prepare success message
         $message = 'Membership berhasil diperpanjang.';
 
-        if ($originalStatus === \App\Enums\MemberStatus::INACTIVE) {
+        if ($originalStatus === \App\Enums\MemberStatus::INACTIVE || $originalStatus === \App\Enums\MemberStatus::EXPIRED) {
             $message .= ' Status member otomatis diubah menjadi aktif karena membership telah diperpanjang.';
         }
 
@@ -169,17 +175,32 @@ class MemberController extends Controller
     public function getRegistrationCosts()
     {
         $registrationFee = $this->memberService->getRegistrationFee();
-        $availableDurations = $this->memberService->getAvailableMembershipDurations();
+        $packages = $this->memberService->getAvailableMembershipPackages();
 
         $membershipPrices = [];
-        foreach ($availableDurations as $duration) {
-            $membershipPrices[$duration['months']] = $this->memberService->getTotalRegistrationCost($duration['months']);
+        foreach ($packages as $key => $package) {
+            $membershipPrices[$key] = $this->memberService->getTotalRegistrationCost($key);
         }
 
         return response()->json([
             'registration_fee' => $registrationFee,
             'membership_prices' => $membershipPrices,
-            'available_durations' => $availableDurations,
+            'packages' => $packages,
         ]);
+    }
+    
+    public function export(Request $request): StreamedResponse
+    {
+        $filters = $request->only(['search', 'status']);
+        $filename = 'members_' . now()->format('Ymd_His') . '.csv';
+
+        $callback = $this->memberService->exportMembersCallback($filters);
+
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+        ];
+
+        return response()->streamDownload($callback, $filename, $headers);
     }
 }

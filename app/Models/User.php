@@ -63,4 +63,19 @@ class User extends Authenticatable
     {
         return $this->hasMany(Attendance::class, 'updated_by');
     }
+
+    public function staffSchedules()
+    {
+        return $this->hasMany(StaffSchedule::class);
+    }
+
+    public function shiftConfirmations()
+    {
+        return $this->hasMany(StaffShiftConfirmation::class);
+    }
+
+    public function createdNonMemberVisits()
+    {
+        return $this->hasMany(NonMemberVisit::class, 'created_by');
+    }
 }

@@ -8,6 +8,9 @@
     'clock'         => 'tabler-clock',
     'user-check'    => 'tabler-user-check',
     'users'         => 'tabler-users',
+    'user-plus'     => 'tabler-user-plus',
+    'credit-card'   => 'tabler-credit-card',
+    'calendar-clock' => 'tabler-calendar-clock',
     'trending-up'   => 'tabler-trending-up',
     'dollar-sign'   => 'tabler-currency-dollar',
     'bell'          => 'tabler-bell',
@@ -15,6 +18,7 @@
     'settings'      => 'tabler-settings',
     'user'          => 'tabler-user',
     'log-out'       => 'tabler-logout',
+    'log-in'        => 'tabler-login',
     'home'          => 'tabler-home',
     'bar-chart-3'   => 'tabler-chart-bar',
     'chevron-left'  => 'tabler-chevron-left',
@@ -39,6 +43,7 @@
     'info-circle'   => 'tabler-info-circle',
     'check'         => 'tabler-check',
     'x'             => 'tabler-x',
+    'x-circle'      => 'tabler-x-circle',
   ];
 
   $iconName = $iconMap[$name] ?? 'tabler-circle';
