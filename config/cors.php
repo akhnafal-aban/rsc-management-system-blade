@@ -15,6 +15,8 @@ return [
             'http://127.0.0.1:3000',
             'http://localhost',
             'http://127.0.0.1',
+            'https://www.reallysportcenter.com',
+            'https://reallysportcenter.com',
         ],
         env('APP_ENV') === 'production'
             ? ['https://reallysportcenter.com', 'https://www.reallysportcenter.com']
